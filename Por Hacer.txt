@@ -1,0 +1,44 @@
+X Activacion del modulo por json
+X Tarea que actualiza el contador por var global
+
+X Mandar mails cuando se detecta el intruso
+X Las direcciones de mails estaran en el json
+X los Mails son una libreria aparte del contador
+
+X Todos estos tiempos deben estar en el json
+X Debe sonar una alarma despues de un cierto tiempo con la puerta abierta
+X Si suena la alarma por puerta abierta debe detenerse y no volver a sonar por cierto tiempo
+X Los sonidos de puerta abierta e intruso son distintos.
+X Si hay un instruso durante la alarma de la puerta suena la alarma de intruso y luego finaliza la rutina de la alarma de puerta abierta
+X Si se debe ejecutar la alarma de puerta abierta mientras se esta ejecutando la de intruso la alarma de puerta abierta esperara 5 seg antes de sonar
+
+- se prende el led si se realiza un ciclo completo.
+
+X Tiempo para poder realizar el ciclo de la fichada, sino el contador se reduce.
+    ficha una persona -> pasillo ficha otra por lo tanto se reinicia el timer -> pasillo si alguna no pasa y se vence el contadorpendientes -1 
+    si rearma el contador, se vence nuevamuente contadorpendientes -1
+    fichada pendiente -> pasa -> contadorpendientes -1
+    fichada pendiente -> no pasa -> se cumple el tiempo -> contadorpendientes -1
+
+X rutina de recepcion de mqtt: actualza la cantidad de personas dentro de clase y display
+
+
+
+- Hay que colocar un RTC e inicializarlo por linea de comandos, luego la libreria datetime tomara la hora
+  del RTC.
+
+X websocket en thread
+            leer fichada
+
+X verificar que guarde los instrusos cuando no haya internet
+  y los envie en cuanto se conecte
+
+X Cantidad de personas en lcd Centrada
+
+X evitar que si una persona ficha y luego no pasa no puedaa ingresar
+
+X mail no bloqueante
+
+X mqtt no bloqueante
+
+X i2c no bloqueante
