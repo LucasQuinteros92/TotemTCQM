@@ -171,7 +171,7 @@ if __name__ == "__main__":
     websocket = BioStar2_WebSocket.BioStar2_WebSocket()
 
     b = datetime.datetime.now()
-
+    print("HBL READY")
     # heartbeat hblCore
     while True:
         # hblCore.heartBeat(pi)
