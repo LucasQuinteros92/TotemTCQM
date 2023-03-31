@@ -11,39 +11,54 @@ class temporizador(object):
     se lo puede reciclar llamando nuevamente a start
     '''
     
-    def __init__(self, segundos = 10, callback = None, name = "",):
+    def __init__(self,logObject = None, segundos = 10, callback = None, name = "", debug  = False , status = "" ):
         super().__init__()
         self.segundos = segundos
         self._running = False
         self.callback = callback
         self._stopEvent = Event()
+        self.debug = debug
         self.count = 0
+        self.log : log.LogReport = logObject
         self.name = name
-        self.Status = "EsperandoPuertaAbierta"
+        self.Status = status
         self.t = Thread( target= self.__run, daemon=False)
         self.t.start()
         
     def start(self):
-        
         self.count = 0
         self._running = True
-        self.LogReport("Timer corriendo")
+        if self.debug:
+            self.LogReport("Timer corriendo, Contara: "+str(self.segundos),"g")
 
     def is_running(self):
         return self._running
     
+    def setEncendido(self,time):
+        self.Status = "AlarmaSonando"
+        self.setSegundos(time)
+        
+    def setDesactivado(self,time):
+        self.Status = "AlarmaDesactivada"
+        self.setSegundos(time)
+        
+    def status(self):
+        return self.Status
+        
     ''' metodo privado de la clase usar solo start y stop luego del init '''
     def __run(self):
-        self.LogReport('Timer inicializado')
+        
+        self.LogReport('Timer inicializado',"y")
         
         while True:
             if self._running :
                 
-                self.LogReport(str(self.count) + "segundo")
+                if self.debug:
+                    self.LogReport(str(self.count) + "segundo")
                 time.sleep(1)
                 if self.count >= self.segundos:
                     #self.LogReport('Se supero el tiempo establecido')
-                    self.count =0
+                    self.count = 0
                     self._running = False
                     if self.callback is not None:
                         self.callback()
@@ -54,21 +69,25 @@ class temporizador(object):
 
                 self.count += 1
             else : 
-                time.sleep(0.5)
+                time.sleep(0.1)
                 
     def setSegundos(self,segundos : int):            
         self.segundos = segundos
         
     def stop(self):
-        
-        self._stopEvent.set()
+        self.count = 0
+        #self._stopEvent.set()
         self._running = False
-        #self.LogReport("Timer detenido ")
+        if self.debug:
+            self.LogReport("Timer detenido ","r")
         
-    def LogReport(self, texto):
-        log.escribeSeparador(hbl.LOGS_hblTimer)
-        log.escribeLineaLog(hbl.LOGS_hblTimer,"Estado: "+ self.Status)
-        log.escribeLineaLog(hbl.LOGS_hblTimer,self.name +": " +texto)
+    def LogReport(self, texto, color = None):
+        if self.log != None:
+            self.log.EscribirLinea(hbl.LOGS_hblTimer)
+            self.log.EscribirLinea(hbl.LOGS_hblTimer, self.name +": " +texto, color)
+            if self.Status != "":
+                self.log.EscribirLinea(hbl.LOGS_hblTimer, "Estado: "+ self.Status)
+        
     
 def rutina():
     print('imprimiendo desde rutina')       

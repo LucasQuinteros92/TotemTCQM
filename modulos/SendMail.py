@@ -2,9 +2,23 @@ from email.message import EmailMessage
 from threading import Thread
 import modulos.auxiliar as auxiliar
 import modulos.hbl as hbl
+import modulos.log as log
 import time
 import smtplib
 import datetime
+
+
+'''
+    COSAS PARA HACER:
+        UN METODO UNICO PARA ENVIAR MAILS 
+            PARAMS:    
+                *MENSAJE
+                *VIDEO/FOTO
+        QUE EL HILO SEA CAPAZ DE ENVIAR MAILS GUARDADOS CUANDO HAYA CONEXION
+        
+                
+            
+'''
 
 
 class SendMail(object):
@@ -14,7 +28,7 @@ class SendMail(object):
         self.remitente = hbl.Mail_remitente
         self.destinatario = hbl.Mail_destinatarios
 
-
+        self.door = False
         self.user = hbl.Mail_user
         self.key = hbl.Mail_key
         
@@ -23,9 +37,16 @@ class SendMail(object):
             self.t = Thread(target = self.__run, daemon= False)
             self.t.start()
 
-    def send(self):
+    def sendIntrusoMail(self):
         
-        self.count += 1         
+        self.count += 1
+        
+    def sendDoorMail(self):
+        self.door = True   
+        
+    def __LogReport(self, texto):
+        log.escribeSeparador(hbl.LOGS_hblMail)
+        log.escribeLineaLog(hbl.LOGS_hblMail, texto)      
     
     def __run(self):
         if hbl.Mail_activado == 1:
@@ -48,11 +69,11 @@ class SendMail(object):
                             smtp.login(self.user, self.key)
                             smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
                             smtp.quit()
-                            #print(f"mail enviado, quedan: {self.count}")
+                            self.__LogReport(f"mail intruso enviado, quedan : {self.count} pendientes")
                             
                             
                         except Exception as e:
-                            print("No se pudo enviar el mail : %s\n" % e)
+                            self.__LogReport("No se pudo enviar el mail de intruso: %s\n" % e)
                             
                     elif self.pendientes :
                         self.email = EmailMessage()
@@ -77,15 +98,37 @@ class SendMail(object):
                                 smtp.login(self.user, self.key)
                                 smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
                                 smtp.quit()
-                                print(f"mail enviado, fecha: {date}")
+                                self.__LogReport(f"mail intruso pendiente enviado, fecha: {date}")
                                 time.sleep(0.5)
                             self.pendientes = False
                             
                             
                         except Exception as e:
-                            print("No se pudo enviar el mail : %s\n" % e)
+                            self.__LogReport("No se pudo enviar el mail de intruso pendiente : %s\n" % e)
                         
+                    elif self.door:
                         
-                
+                        self.email = EmailMessage()
+                        
+                        self.email["From"] = hbl.Mail_remitente
+                        self.email["To"] = hbl.Mail_destinatarios
+                        self.email["Subject"] = hbl.Contador_ID + " Puerta abierta"
+                        
+
+                        date = str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+                        try:
+                            mensaje = "<html><body><h1> Se ha detectado que la puerta esta abierta a las : " + date + "</h1></body></html>"
+                            self.email.set_content(mensaje)
+                            smtp = smtplib.SMTP_SSL("smtp-relay.sendinblue.com")
+                            smtp.login(self.user, self.key)
+                            smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
+                            smtp.quit()
+                            self.__LogReport(f"mail por puerta abierta enviado")
+                            
+                            
+                        except Exception as e:
+                            self.__LogReport("No se pudo enviar el mail por puerta abierta : %s\n" % e)
+                            
+                    self.door = False
                 else:
                     time.sleep(0.5)

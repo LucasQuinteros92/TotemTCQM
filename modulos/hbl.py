@@ -197,6 +197,7 @@ def cargarParametros(archivo):
     global LOGS_hblTimer
     
     global LOGS_hblPuerta
+    global LOGS_hblMail
 
     global IDHBL
 
@@ -323,6 +324,10 @@ def cargarParametros(archivo):
     global Contador_MaxTimeDisable    
     global Contador_TiempoBlinkAlarmaPuerta
     global Contador_IntrusosPendientesPath
+    global Contador_ID
+    global Contador_Buzzer
+    global Contador_MailPuertaAbierta
+    global Contador_DebugSensores
     
     global Mail_destinatarios
     global Mail_remitente
@@ -588,6 +593,7 @@ def cargarParametros(archivo):
     LOGS_hblTimer = data["logs"]["hblTimer"]
 
     LOGS_hblPuerta = data["logs"]["hblPuerta"]
+    LOGS_hblMail   = data["logs"]["hblMail"]
 
     IDHBL=data["IDHBL"] 
 
@@ -719,6 +725,10 @@ def cargarParametros(archivo):
     Contador_MaxTimeDisable          = data["ContadorPersonas"]["MaxTimeDisable"]
     Contador_TiempoBlinkAlarmaPuerta = data["ContadorPersonas"]["TiempoBlinkAlarmaPuerta"]
     Contador_IntrusosPendientesPath  = data["ContadorPersonas"]["IntrusosPendientesPath"]
+    Contador_ID                      = data["ContadorPersonas"]["ID"]
+    Contador_Buzzer                  = data["ContadorPersonas"]["Buzzer"]
+    Contador_MailPuertaAbierta       = data["ContadorPersonas"]["MailPuertaAbierta"]
+    Contador_DebugSensores           = data["ContadorPersonas"]["DebugSensores"]
     
     #Mails
     Mail_activado = data["Mail"]["activado"]

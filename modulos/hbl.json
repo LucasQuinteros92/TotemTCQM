@@ -222,8 +222,8 @@
         "activado": 1,
         "broker": "broker.mqttdashboard.com",
         "port": 1883,
-        "TopicSend": "RPI/JPH/HBL/Send",
-        "TopicRecv": "RPI/JPH/HBL/Recv"
+        "TopicSend": "JPH/Tx/TEST/",
+        "TopicRecv": "JPH/Rx/TEST/"
     },
     "tcp": {
         "serverDefault": {
@@ -268,7 +268,8 @@
         "hblMQTT": "hblMQTT.log",
         "hblTimer": "hblTimer.log",
         "hblPuerta": "hblPuerta.log",
-        "hblBioStar2_WebSocket": "hblBioStar2_WebSocket.log"
+        "hblBioStar2_WebSocket": "hblBioStar2_WebSocket.log",
+        "hblMail": "hblMail.log"
     },
     "reporte": {
         "activado": 0,
@@ -343,7 +344,11 @@
         "MaxTimeEnable": 180,
         "MaxTimeDisable": 420,
         "TiempoBlinkAlarmaPuerta": 1000,
-        "IntrusosPendientesPath": "Intrusos.txt"
+        "IntrusosPendientesPath": "Intrusos.txt",
+        "MailPuertaAbierta": 1,
+        "DebugSensores": 1,
+        "Buzzer": 0,
+        "ID": "PWC   Acceso Repetto"
     },
     "Mail": {
         "activado": 0,

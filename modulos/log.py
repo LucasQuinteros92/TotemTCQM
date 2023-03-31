@@ -2,8 +2,9 @@
 import datetime
 import os
 import shutil
-import zipfile  
-
+import zipfile
+import time  
+from threading import Thread
 from modulos import hbl as hbl
 
 """ --------------------------------------------------------------------------------------------
@@ -100,11 +101,23 @@ def escribeCabecera(log, tipoEvento):
 
 -------------------------------------------------------------------------------------------- """
 
-def escribeSeparador(log):
+def escribeSeparador(log,color = None):
     logFile = open(os.getcwd() + '/log/' + log, "a")
-    logFile.write("***********************************************************************************")
+    csi    = '\x1B['
+    if color is not None:
+        if color == 'red':
+            seleccion    = csi +  '31;1m'
+        elif color == 'yellow':
+            seleccion = csi + '33;1m'
+    else:
+        seleccion = csi + '97;1m'
+    end    = csi + '0m'
+
+    
+    logFile.write("%s***********************************************************************************%s"%(seleccion,end))
     logFile.write("\n")
-    logFile.write("Fecha / Hora : " + str(datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')))
+    fecha = seleccion + "Fecha / Hora : " + str(datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')) + end
+    logFile.write( fecha )
     logFile.write("\n")
     logFile.close() 
   
@@ -165,3 +178,69 @@ def escribeLineaLog(log, texto):
 
         log.escribeSeparador(hbl.LOGS_hblCore) 
         #log.escribeLineaLog(hbl.LOGS_hblCore, "Error : " + str(inst))
+        
+""" --------------------------------------------------------------------------------------------
+
+    Escribe lineas logs
+         
+        *Escribe mensajes en el log seleccionado
+        *Si llegan mensajes mientras esta escribiendo se meten en una lista
+        *
+-------------------------------------------------------------------------------------------- """
+
+class LogReport(object):
+    def __init__(self):
+        self.__EscribirLinea = False
+        
+        self.texto = []
+        self.t = Thread(target=self.__run, name="",daemon=False)
+        self.t.start()
+        
+        self.csi    = '\x1B['
+        self.red    = self.csi + '31;1m'
+        self.yellow = self.csi + '33;1m'
+        self.green  = self.csi + '92;1m'
+        self.white  = self.csi + '97;1m'
+        self.end    = self.csi + '0m'
+
+        
+    
+    def EscribirLinea(self,logname, texto = '', color = None):
+        self.texto.append(logname)
+        self.texto.append(texto)
+        self.texto.append(color)
+        self.__EscribirLinea = True
+        
+    def stop(self):
+        self.__EscribirLinea = False
+
+    def __run(self):
+        while True:
+            
+            if self.__EscribirLinea:
+                if self.texto.__len__():
+                    logname = self.texto.pop(0)
+                    texto  =  self.texto.pop(0)
+                    color = self.texto.pop(0)
+                    
+                    if texto == "Separador" or texto == '':
+                        escribeSeparador(logname)    
+                    else:
+                        if color is not None:
+                            if color == 'r':
+                                self.seleccion  = self.red
+                            elif color == 'y':
+                                self.seleccion = self.yellow
+                            elif color == 'g':
+                                self.seleccion = self.green
+                        else:
+                            self.seleccion = self.white
+                        texto = self.seleccion + texto + self.end
+                        
+                        escribeLineaLog(logname,texto)
+                else:
+                    self.__EscribirLinea = False
+                
+            else:
+                time.sleep(0.5)
+

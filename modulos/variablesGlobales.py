@@ -294,6 +294,9 @@ contador = 0
 LastDNI = 99999999
 DNIFichadaPendientes = []
 flagPuerta = False
+Status =  1
+IR1 = 0
+IR2 = 0
 
 """         ESTADOS PUERTA       """
 Esperando_Reloj             =  1
@@ -301,12 +304,13 @@ Esperando_IR1               =  2
 Esperando_IR1_IR2           =  3
 Esperando_IR2               =  4
 Esperando_CompletarCiclo    =  5
-VerificacionIntruso         =  6
-VerificacionIntruso2        =  7
-VerificacionIntruso3        =  8
-Esperando_IR1_IR2_Saliente  =  9
-Esperando_IR1_Saliente      =  10
-Confirmando_Saliente        =  11
-Persona_Saliente            =  12
+EntradaCompleta             =  6
+VerificacionIntruso         =  7
+VerificacionIntruso2        =  8
+VerificacionIntruso3        =  9
+Intruso                     =  10
+Esperando_IR1_IR2_Saliente  =  11
+Esperando_IR1_Saliente      =  12
+Persona_Saliente            =  13
 
 

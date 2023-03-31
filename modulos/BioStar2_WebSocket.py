@@ -158,9 +158,9 @@ class BioStar2_WebSocket(object):
             log.escribeSeparador(hbl.LOGS_hblBioStar2_WebSocket)
             log.escribeLineaLog(hbl.LOGS_hblBioStar2_WebSocket,"Tipo de evento : " + event_type_name)
             log.escribeLineaLog(hbl.LOGS_hblBioStar2_WebSocket,"Device ID : " + device_id)
-        id = message_json["Event"]["user_id"]["user_id"]
-        vg.WebSock_Data = id
-        log.escribeLineaLog(hbl.LOGS_hblBioStar2_WebSocket,"ID : " + id)
+            id = message_json["Event"]["user_id"]["user_id"]
+            vg.WebSock_Data = id
+            log.escribeLineaLog(hbl.LOGS_hblBioStar2_WebSocket,"ID : " + id)
         
     def CoincidenciaDeEvento(self, event):
         for i in hbl.BioStar2_WebSocket_Tipo_Evento: 

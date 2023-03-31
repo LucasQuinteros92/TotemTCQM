@@ -48,12 +48,14 @@ class Puerta(object):
             vg.flagPuerta = bool( self.pi.read(vg.Pin_Entrada3) )
             self.IR1 = 0
             self.IR2 = 0
+            
             self.EstadoPuerta = 0
             self.lcd1 = lcd1
+            self.pi.write(vg.Pin_Salida1,hbl.ON)
             #
             #VARIABLES ASOCIADAS A LA MAQ DE EST
             #
-            
+            self.ID = hbl.Contador_ID
             self.Status = vg.Esperando_Reloj
             self.AlarmaStatus = ""
             self.contador = vg.contador
@@ -64,30 +66,52 @@ class Puerta(object):
             self.ClienteMqtt = ClienteMqtt
             self.ClienteMqtt.handlerRecv = self.__Leer_Ordenes_Server
             self.mail = SendMail()
+            self.entrantes = 0
+            self.salientes = 0
+            
+
+            
             #
             #TAREAS
-            #            
+            #
+            self.log = log.LogReport() 
+                       
             self.thread = Thread( target=self.__Control_FSM,
                                   daemon=False)
             
-            self.Alarma = alarma(self.pi, name= "Alarma" )
+            self.Alarma = alarma( self.pi, name= "Alarma", logObject=self.log)
             
-            self.timerFichada = temporizador(self.MaxTimeIN, 
+            self.timerFichada = temporizador(self.log,
+                                             self.MaxTimeIN, 
                                              self.__cbFichadavencida, 
-                                             name="TimerFichada")
+                                             name="TimerFichada",
+                                             debug=True
+                                             )
             
-            self.timerPuertaAbierta = temporizador(self.MaxTimePuerta,
-                                                  self.__cbAlarmaPuertaAbierta,
-                                                  name="TimerAlarmaPuertaAbierta")
+            self.timerPuertaAbierta = temporizador(self.log,
+                                                   5,  
+                                                   self.__cbAlarmaPuertaAbierta,
+                                                   name="TimerAlarmaPuertaAbierta",
+                                                   debug=True,
+                                                   status="PuertaCerrada"
+                                                )
+                #"MaxTimePuerta": 720,
+                #"MaxTimeEnable": 180,
+                #"MaxTimeDisable": 420,
             
-            self.timerReloj = temporizador(10, self.__cbTimerReloj,
+            self.timerReloj = temporizador(self.log,60, self.__cbTimerReloj,
                                                    name="TimerReloj")
+            
+            self.timerReport = temporizador(self.log,60, self.__InformarServidor,
+                                                name = "TimerReport",
+                                                debug=False)
+            self.timerReport.start()
             self.timerReloj.start()
             self.thread.start()
             self.__LogReport("Modo Contador Inicializado")
-        else:
-            self.__LogReport("Modo Contador Desactivado")
-     
+
+            if auxiliar.CheckInternet():
+                self.ClienteMqtt.publish("Contador: " + hbl.Contador_ID)
 
     
     #metodos privados
@@ -97,17 +121,22 @@ class Puerta(object):
         self.timerReloj.start()
         
     def __Leer_Ordenes_Server(self, client, userdata, msg): 
-        data = msg.payload.decode()
-        self.ClienteMqtt.LogReport(f"Received from {msg.topic} topic: \n{data} ")
-        data = json.loads(data)
-        
-        
-        cantidad  = data.get("cantidad")
-        if( cantidad >= 0):
-            self.CantidadDePersonas = cantidad
+        try:
+            data = msg.payload.decode()
+            self.ClienteMqtt.LogReport(f"Received from {msg.topic} topic: \n{data} ")
+            data = json.loads(data)
             
-            self.Actualizarlcd() 
-    
+            
+            ID  = data.get("ID").strip(" ")
+            cantidad = data.get("CANTIDAD")
+            if ID == hbl.Contador_ID.strip(" ") and cantidad != None :
+                self.CantidadDePersonas = int(cantidad)
+                self.entrantes = 0
+                self.salientes = 0
+                
+                self.Actualizarlcd() 
+        except:
+            pass
     
     def __cbAlarmaPuertaAbierta(self):
         #Activo la alarma con la rutina del buzzer de puerta abierta
@@ -116,35 +145,24 @@ class Puerta(object):
         #luego que de vencerse este otro hilo que mantenga la alarma desactivada
         #durante cierto periodo
         # y despues volver a la operacion normal
+        self.__Timer()
         self.timerPuertaAbierta.stop()
+        
         #si se vence el timer de la puerta abierta paso a activar la alarm
-        if self.timerPuertaAbierta.Status == "EsperandoPuertaAbierta":
-            self.timerPuertaAbierta.Status = "AlarmaSonando"
-            self.timerPuertaAbierta.setSegundos(self.MaxTimeEnable)
-            if self.Alarma.Status == "Intruso":
-                time.sleep(5)
-            self.Alarma.Status = "PuertaAbierta"
-            self.Alarma.start()
-            
+        if self.timerPuertaAbierta.status() == "PuertaAbierta":
+            self.timerPuertaAbierta.setEncendido(self.MaxTimeEnable)
+            self.mail.sendDoorMail()
+            self.Alarma.SonarAlarmaPuertaAbierta()
             
         #si la puerta no se cerro apago la alarma
-        elif self.timerPuertaAbierta.Status == "AlarmaSonando":
-            self.timerPuertaAbierta.Status = "AlarmaDesactivada"
-            if self.Alarma.is_running():
-                self.Alarma.Status = ""
-                self.Alarma.stop()
-
-            self.timerPuertaAbierta.setSegundos(self.MaxTimeDisable)
-            
+        elif self.timerPuertaAbierta.status() == "AlarmaSonando":
+            self.timerPuertaAbierta.setDesactivado(self.MaxTimeDisable)
+            self.Alarma.stop()
             
         #si no se cerro la puerta se activa la alarma nuevamente
-        elif self.timerPuertaAbierta.Status == "AlarmaDesactivada":
-            self.timerPuertaAbierta.setSegundos(self.MaxTimeEnable)
-            self.timerPuertaAbierta.Status = "AlarmaSonando"
-            if self.Alarma.Status == "Intruso":
-                time.sleep(5)
-            self.Alarma.Status = "PuertaAbierta"
-            self.Alarma.start()
+        elif self.timerPuertaAbierta.status() == "AlarmaDesactivada":
+            self.timerPuertaAbierta.setEncendido(self.MaxTimeEnable)
+            self.Alarma.SonarAlarmaPuertaAbierta()
 
         self.timerPuertaAbierta.start()
         
@@ -157,164 +175,205 @@ class Puerta(object):
             self.timerFichada.stop()
             vg.contador = 0
             
-            self.Status = vg.Esperando_Reloj
+            vg.Status = vg.Esperando_Reloj
         vg.LastDNI = 99999999
     
     def __LeerEntradas(self):
-        self.IR1 = not self.pi.read(vg.Pin_Entrada1)
-        self.IR2 = not self.pi.read(vg.Pin_Entrada2)
+        #self.IR1 =  self.pi.read(vg.Pin_Entrada1)
+        #self.IR2 =  self.pi.read(vg.Pin_Entrada2)
+        
+        #self.prevEstadoPuerta = self.EstadoPuerta
+        #self.EstadoPuerta  = self.pi.read(vg.Pin_Entrada3)
+        '''
+        if  vg.auxIR1 != self.IR1 and vg.auxIR2 != self.IR2:
+            #self.lcd1.lcdWrite(2, str(vg.auxIR1) + str(vg.auxIR2),debug= True)
+            
+            vg.auxIR2 = self.IR2
+            vg.auxIR1 = self.IR1
+            print(str(self.IR1) + str(self.IR2))
+            
+        elif vg.auxIR1 != self.IR1:
+            #self.lcd1.lcdWrite(2, str(vg.auxIR1) + '0',debug= True)
+            
+            vg.auxIR1 = self.IR1
+            print(str(self.IR1) + str(self.IR2))
+                
+        elif vg.auxIR2 != self.IR2:
+            #self.lcd1.lcdWrite(2, '0' + str(vg.auxIR2) ,debug= True)
+            
+            vg.auxIR2 = self.IR2
+            print(str(self.IR1) + str(self.IR2))
+        '''
+    
+    def __Timer(self):
         self.prevEstadoPuerta = self.EstadoPuerta
         self.EstadoPuerta  = self.pi.read(vg.Pin_Entrada3)
-    
-       
-    def __Timer(self):
         #EL TIMER SE INICIA CADA VEZ QUE SE ABRE LA PUERTA
         #Y SE DETIENE CADA VEZ QUE SE CIERRA
         if self.EstadoPuerta > self.prevEstadoPuerta: 
             #si abro la puerta la entrada pasa a 0
             vg.flagPuerta = True
+            self.timerPuertaAbierta.Status = "PuertaAbierta"
             self.timerPuertaAbierta.start()
             print("corriendo timer")
                 
         elif self.EstadoPuerta < self.prevEstadoPuerta:
             #si cierro la puerta la entrada pasa a 1
             if self.timerPuertaAbierta.is_running():
+                self.timerPuertaAbierta.Status = "PuertaCerrada"
                 self.timerPuertaAbierta.stop()
                 if self.Alarma.Status == "PuertaAbierta":
-                    self.Alarma.Status =""
+                    
+                    self.Alarma.Status = ""
                     self.Alarma.stop()
                 print("timer detenido")
-            vg.flagPuerta = False
-        
-    def __LogReport(self, mensaje):
-        log.escribeSeparador(hbl.LOGS_hblPuerta)
-        
-        log.escribeLineaLog(hbl.LOGS_hblPuerta, "PersonasDentro: "+ str(self.CantidadDePersonas))
-        log.escribeLineaLog(hbl.LOGS_hblPuerta, "UltimaEntrada: "+ str(self.lastIN))
-        log.escribeLineaLog(hbl.LOGS_hblPuerta, "Estado Puerta: "+ str(self.EstadoPuerta))
-        log.escribeLineaLog(hbl.LOGS_hblPuerta, "Estado: "+ str(self.Status))
-        log.escribeLineaLog(hbl.LOGS_hblPuerta, "Last DNI: "+ str(vg.LastDNI))
-        log.escribeLineaLog(hbl.LOGS_hblPuerta, "Last Alarma: "+ str(self.LastAlarma))
-        
-        log.escribeLineaLog(hbl.LOGS_hblPuerta, mensaje)    
-        
+            vg.flagPuerta = False   
+
     def __Control_FSM(self):
         while True:
-            self.__LeerEntradas()
             self.__Timer()
-            #
-            #DETECCION DE RUTINA
-            # 
-            
-            if self.Status == vg.Esperando_Reloj:
-                if self.IR1 and not self.IR2 and not vg.contador:
-                    
-                    self.Status = vg.VerificacionIntruso
-                    self.__LogReport("Posible Intruso, verificando sentido")
-                    
+            if vg.Status == vg.Esperando_Reloj:   
                 if vg.contador:
                     
                     self.fichada()
-                    self.__LogReport("Esperando IR1")
-                    self.Status = vg.Esperando_IR1
+                    vg.Status = vg.Esperando_IR1
                     
-                if not self.IR1 and self.IR2:
-                    self.Status = vg.Esperando_IR1_IR2_Saliente
-                    self.__LogReport("Posible Saliente")
+            elif vg.Status == vg.EntradaCompleta:
+
+                    self.ingresoValido()
+                    vg.Status = vg.Esperando_Reloj                    
+
+            elif vg.Status == vg.Intruso:
+
+                    self.intruso_detectado()
+                    vg.Status = vg.Esperando_Reloj
+                    
+            elif vg.Status == vg.Persona_Saliente:
+
+                    self.salida()
+                    vg.Status = vg.Esperando_Reloj
+                    
+                
+    
+    '''    
+    def __Control_FSM(self):
+        while True:
+            #self.__LeerEntradas()
+            #self.__Timer()
+            #
+            #DETECCION DE RUTINA
+            # 
+            if vg.Modo == vg.Esperando:
+                if vg.Status == vg.Esperando_Reloj:
+                    if vg.IR1 and not vg.IR2 and not vg.contador:
+                        
+                        vg.Modo = vg.Intruso
+                        #self.__LogReport("Posible Intruso, verificando sentido")
+                        
+                    if vg.contador:
+                        
+                        self.fichada()
+                        #self.__LogReport("Esperando IR1")
+                        vg.Status = vg.Esperando_IR1
+                        
+                    if not vg.IR1 and vg.IR2:
+                        pass
+                        #vg.Status = vg.Esperando_IR1_IR2_Saliente
+                        #self.__LogReport("Posible Saliente")
             #
             #SECUENCIA ENTRANTE
             # 
             
-            elif self.Status == vg.Esperando_IR1:
-                if self.IR1 and not self.IR2:
-        
-                    self.__LogReport("Esperando IR1 y IR2")
-                    self.Status = vg.Esperando_IR1_IR2
-                    
-            elif self.Status == vg.Esperando_IR1_IR2:
-                if self.IR1 and self.IR2:
+            elif vg.Modo == vg.Entrante:
+                
+                if vg.Status == vg.Esperando_IR1:
+                    if vg.IR1 and not vg.IR2:
+            
+                        #self.__LogReport("Esperando IR1 y IR2")
+                        vg.Status = vg.Esperando_IR1_IR2
+                        
+                elif vg.Status == vg.Esperando_IR1_IR2:
+                    if vg.IR1 and vg.IR2:
 
-                    self.__LogReport("Esperando IR2")
-                    self.Status = vg.Esperando_IR2
-                    
-            elif self.Status == vg.Esperando_IR2:
-                if not self.IR1 and self.IR2:
+                        #self.__LogReport("Esperando IR2")
+                        vg.Status = vg.Esperando_IR2
+                        
+                elif vg.Status == vg.Esperando_IR2:
+                    if not vg.IR1 and vg.IR2:
 
-                    self.__LogReport("Esperando que se libere IR2")
-                    self.Status = vg.Esperando_CompletarCiclo
-                    
-            elif self.Status == vg.Esperando_CompletarCiclo:
-                if not self.IR1 and not self.IR2:
-                    self.ingresoValido()
+                        #self.__LogReport("Esperando que se libere IR2")
+                        vg.Status = vg.Esperando_CompletarCiclo
+                        
+                elif vg.Status == vg.Esperando_CompletarCiclo:
+                    if not vg.IR1 and not vg.IR2:
+                        self.ingresoValido()
                     
             #
             #SECUENCIA INTRUSO
-            # 
-                 
-            elif self.Status == vg.VerificacionIntruso: #s1 = 1 , s2 = 0
-                if self.IR1 and self.IR2 and self.EstadoPuerta:
-                    self.Status = vg.VerificacionIntruso2
-                    self.__LogReport("verificacion de intruso 1")
-                    
-                elif not self.IR1 and not self.IR2:
-                    self.Status = vg.Esperando_Reloj
-                    
-            elif self.Status == vg.VerificacionIntruso2: #s1 = 1 , s2 = 1
-                if not self.IR1 and self.IR2 and self.EstadoPuerta:
-                    self.__LogReport("Verificacion de intruso 2")
-                    self.Status = vg.VerificacionIntruso3
-                    
-                elif self.IR1 and not self.IR2:
-                    self.Status = vg.VerificacionIntruso
-                    
-            elif self.Status == vg.VerificacionIntruso3:
-                if not self.IR1 and not self.IR2 and self.EstadoPuerta:
-                    self.Status = vg.Esperando_Reloj
-                    self.__LogReport("Verificacion de intruso completa sonara la alarma")
-                    #
-                    # Rutina de aviso
-                    #
-                    self.intruso_detectado()
-                    
-                elif self.IR1 and self.IR2:
-                    self.Status = vg.VerificacionIntruso2
+            #
+            elif vg.Modo == vg.Intruso:
+                
+                if vg.Status == vg.VerificacionIntruso: #s1 = 1 , s2 = 0
+                    if vg.IR1 and vg.IR2 and self.EstadoPuerta:
+                        vg.Status = vg.VerificacionIntruso2
+                        #self.__LogReport("verificacion de intruso 1")
+                        
+                    elif not vg.IR1 and not vg.IR2:
+                        vg.Status = vg.Esperando_Reloj
+                        
+                elif vg.Status == vg.VerificacionIntruso2: #s1 = 1 , s2 = 1
+                    if not vg.IR1 and vg.IR2 and self.EstadoPuerta:
+                        #self.__LogReport("Verificacion de intruso 2")
+                        vg.Status = vg.VerificacionIntruso3
+                        
+                    elif vg.IR1 and not vg.IR2:
+                        vg.Status = vg.VerificacionIntruso
+                        
+                elif vg.Status == vg.VerificacionIntruso3:
+                    if not vg.IR1 and not vg.IR2 and self.EstadoPuerta:
+                        vg.Status = vg.Esperando_Reloj
+                        #self.__LogReport("Verificacion de intruso completa sonara la alarma", "full")
+                        #
+                        # Rutina de aviso
+                        #
+                        self.intruso_detectado()
+                        
+                    elif vg.IR1 and vg.IR2:
+                        vg.Status = vg.VerificacionIntruso2
             #
             #SECUENCIA SALIENTE
-            #        
-            elif self.Status == vg.Esperando_IR1_IR2_Saliente:#s1 = 0 , s2 = 1
-                if self.IR1 and self.IR2 and self.EstadoPuerta:
-                    self.__LogReport("Posible Intruso Estado:Esperando IR1 IR2 Saliente")
-                    self.Status = vg.Esperando_IR1_Saliente
+            #
+            elif vg.Modo == vg.Saliente:
+                        
+                if vg.Status == vg.Esperando_IR1_IR2_Saliente:#s1 = 0 , s2 = 1
+                    if vg.IR1 and vg.IR2 and self.EstadoPuerta:
+                        #self.__LogReport("Posible Intruso Estado:Esperando IR1 IR2 Saliente")
+                        vg.Status = vg.Esperando_IR1_Saliente
+                        
+                    if not vg.IR1 and not vg.IR2:
+                        vg.Status = vg.Esperando_Reloj
                     
-                if not self.IR1 and not self.IR2:
-                    self.Status = vg.Esperando_Reloj
-                
-            elif self.Status == vg.Esperando_IR1_Saliente:# s1 = 1 , s2 = 1
-                if self.IR1 and not self.IR2 and self.EstadoPuerta:
+                elif vg.Status == vg.Esperando_IR1_Saliente:# s1 = 1 , s2 = 1
+                    if self.IR1 and not self.IR2 and self.EstadoPuerta:
+                        
+                        #self.__LogReport("Intruso casi confirmado Estado: Esperando IR1 Saliente")
+                        vg.Status = vg.Confirmando_Saliente
+                        
+                    elif not self.IR1 and self.IR2:
+                        vg.Status = vg.Esperando_IR1_IR2_Saliente
+                        
                     
-                    self.__LogReport("Intruso casi confirmado Estado: Esperando IR1 Saliente")
-                    self.Status = vg.Confirmando_Saliente
+                elif vg.Status == vg.Confirmando_Saliente:# s1 = 1 , s2 = 0
+                    if not vg.IR1 and not vg.IR2 and self.EstadoPuerta:
+
+                        self.salida()
+                        vg.Status = vg.Esperando_Reloj
+                        
+                    elif vg.IR1 and vg.IR2:
+                        vg.Status = vg.Esperando_IR1_Saliente
                     
-                elif not self.IR1 and self.IR2:
-                    self.Status = vg.Esperando_IR1_IR2_Saliente
-                    
-                
-            elif self.Status == vg.Confirmando_Saliente:# s1 = 1 , s2 = 0
-                if not self.IR1 and not self.IR2 and self.EstadoPuerta:
-                    if self.CantidadDePersonas > 0:
-                        self.CantidadDePersonas -= 1
-                        self.actualizarCantidadDePersonas("-1")
-                    else:
-                        self.CantidadDePersonas = 0
-                    
-                    self.Status = vg.Esperando_Reloj
-                    self.__LogReport("Cantidad De personas dentro: " + str(self.CantidadDePersonas))
-                    
-                elif self.IR1 and self.IR2:
-                    self.Status = vg.Esperando_IR1_Saliente
-                    
-            time.sleep(self.MaxTimeCheck)
-    
+            #time.sleep(self.MaxTimeCheck)
+    '''
     def __setTiempos(self):
         self.MaxTimeIN               = hbl.Contador_MaxTimeIN                      #Tiempo de gracia que se le da a la persona para finalizar el ingreso una vez que ficho            self.MaxTimeCheck            =  0.02
         self.MaxTimeAlarma           = hbl.Contador_MaxTimeAlarma                  #Quizas innecesario reemplazado por maxtimeEnable
@@ -331,7 +390,17 @@ class Puerta(object):
         self.timerFichada.start()
         self.lastIN = datetime.datetime.now() 
 
+    def salida(self):
+        if self.CantidadDePersonas > 0:
+                self.CantidadDePersonas -= 1
+                self.actualizarCantidadDePersonas("-1")
+        else:
+                self.CantidadDePersonas = 0
+        
+        self.__LogReport("Salida completa", "full","g")
+        
     def ingresoValido(self):
+        
         self.timerFichada.stop()
        
         vg.contador -= 1
@@ -341,26 +410,38 @@ class Puerta(object):
 
         self.CantidadDePersonas += 1
         self.actualizarCantidadDePersonas("+1")
-        self.Status = vg.Esperando_Reloj
         
-        
-        self.__LogReport("Ciclo Completo")
-        self.__LogReport("Cantidad De personas dentro: " + str(self.CantidadDePersonas))
+        #self.__LogReport("Ciclo Completo")
+        self.__LogReport(" Ingreso Valido ","full","g")
         
     def intruso_detectado(self):
         
         self.LastAlarma = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         self.CantidadDePersonas += 1
-        self.Alarma.Status = "Intruso"
-        self.Alarma.start()
+        self.Alarma.SonarAlarmaIntruso()
         self.actualizarCantidadDePersonas("+1","si")
+        self.__LogReport(" Intruso detectado ","full","r")
         
         if auxiliar.CheckInternet():
             print("Envio el mail si esta activado\n")
-            self.mail.send()
+            self.mail.sendIntrusoMail()
         else:
             print("Agrego intruso \n")
             self.add_intruso(str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
+    
+    def __LogReport(self, mensaje, modo = None, color = None):
+        self.log.EscribirLinea(hbl.LOGS_hblPuerta)
+        
+        if modo == 'full':
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"PersonasDentro: "+ str(self.CantidadDePersonas))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"UltimaEntrada: "+ str(self.lastIN))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado Puerta: "+ str(self.EstadoPuerta))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado: "+ str(self.Status))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last DNI: "+ str(vg.LastDNI))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last Alarma: "+ str(self.LastAlarma))
+        
+        self.log.EscribirLinea(hbl.LOGS_hblPuerta,mensaje,color) 
+    
     
     def add_intruso(self, date):
         myFile = open(hbl.Contador_IntrusosPendientesPath, 'a')
@@ -384,10 +465,20 @@ class Puerta(object):
 
     def actualizarCantidadDePersonas(self,personas : str ,intruso : str = "no"):
         self.Actualizarlcd()
-        self.ClienteMqtt.publish('{ "puerta"  : "Acesso Repetto",\
-                                    "cambio"  : ' +personas+ ',   \
-                                    "intruso" : "'+intruso + '"  }')            
-
+        if personas == "+1":
+            self.entrantes += 1
+        else:
+            self.salientes += 1
+        
+    def __InformarServidor(self):
+        self.timerReport.stop()
+        if not self.IR1 and not self.IR2 and (self.entrantes != 0 or self.salientes != 0):
+            if auxiliar.CheckInternet():
+                self.ClienteMqtt.publish(   '{ "ID"  : "' + hbl.Contador_ID + '",\
+                                            "Entrantes"  :"' + str(self.entrantes) + '",   \
+                                            "Salientes" : "' + str(self.salientes) + '"  }')
+                            
+        self.timerReport.start()
 
 
         

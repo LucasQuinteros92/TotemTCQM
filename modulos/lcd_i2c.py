@@ -2,8 +2,8 @@
 from modulos import auxiliar as auxiliar
 class lcd:
   
-   """
-   Commands
+   
+   #Commands
 
    LCD_CLEARDISPLAY = 0x01
    LCD_RETURNHOME = 0x02
@@ -14,14 +14,14 @@ class lcd:
    LCD_SETCGRAMADDR = 0x40
    LCD_SETDDRAMADDR = 0x80
 
-   Flags for display entry mode
+   #Flags for display entry mode
 
    LCD_ENTRYRIGHT = 0x00
    LCD_ENTRYLEFT = 0x02
    LCD_ENTRYSHIFTINCREMENT = 0x01
    LCD_ENTRYSHIFTDECREMENT = 0x00
 
-   Flags for display on/off control
+   #Flags for display on/off control
 
    LCD_DISPLAYON = 0x04
    LCD_DISPLAYOFF = 0x00
@@ -30,14 +30,14 @@ class lcd:
    LCD_BLINKON = 0x01
    LCD_BLINKOFF = 0x00
 
-   Flags for display/cursor shift
+   #Flags for display/cursor shift
 
    LCD_DISPLAYMOVE = 0x08
    LCD_CURSORMOVE = 0x00
    LCD_MOVERIGHT = 0x04
    LCD_MOVELEFT = 0x00
 
-   Flags for function set
+   #Flags for function set
 
    LCD_8BITMODE = 0x10
    LCD_4BITMODE = 0x00
@@ -46,11 +46,11 @@ class lcd:
    LCD_5x10DOTS = 0x04
    LCD_5x8DOTS = 0x00
 
-   Flags for backlight control
+   #Flags for backlight control
 
    LCD_BACKLIGHT = 0x08
    LCD_NOBACKLIGHT = 0x00
-   """
+   
 
    _LCD_ROW = [0x80, 0xC0, 0x94, 0xD4]
 
@@ -121,6 +121,11 @@ class lcd:
       LSb = (LSN << self.B4) | self.RS
 
       self._byte(MSb, LSb)
+      
+   def createChar(self,bits,list):
+      self._inst(self.LCD_SETCGRAMADDR )
+      for i in range(8):
+         self._data(list[i])
 
    def move_to(self, row, column):
       auxiliar.EscribirFuncion("lcd - move_to")
