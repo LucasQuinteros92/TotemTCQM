@@ -2,6 +2,7 @@
 import os
 from pickle import TRUE
 
+
 from modulos import log as log
 from modulos import variablesGlobales as variablesGlobales
 from modulos import hbl as hbl
@@ -280,8 +281,13 @@ def PlayAudio(AudioPath,pi):
 
 def CheckInternet():
     try:
-        url = "https://www.google.com"
-        urlopen(url)
+        url = "https://www.yahoo.com"
+        urlopen(url,timeout=3)
+        variablesGlobales.internet = True
+        
         return True
-    except:
+    except Exception as e:
+        print(str(e))
+        variablesGlobales.internet = False
+        
         return False

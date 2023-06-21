@@ -22,15 +22,17 @@ class temporizador(object):
         self.log : log.LogReport = logObject
         self.name = name
         self.Status = status
-        self.t = Thread( target= self.__run, daemon=False)
+        self.t = Thread( target= self.__run, daemon=False, name = name)
         self.t.start()
         
     def start(self):
         self.count = 0
         self._running = True
         if self.debug:
-            self.LogReport("Timer corriendo, Contara: "+str(self.segundos),"g")
-
+            if self.segundos/60 > 1:
+                self.LogReport("Timer corriendo, Contara: "+str(int(self.segundos/60))+" minutos","g")
+            else:
+                self.LogReport("Timer corriendo, Contara: "+str(self.segundos)+" segundos","g")
     def is_running(self):
         return self._running
     
@@ -53,8 +55,9 @@ class temporizador(object):
         while True:
             if self._running :
                 
-                if self.debug:
-                    self.LogReport(str(self.count) + "segundo")
+                #if self.debug:
+                    #if self.count % 10:
+                        #self.LogReport(str(self.count) + "segundos")
                 time.sleep(1)
                 if self.count >= self.segundos:
                     #self.LogReport('Se supero el tiempo establecido')

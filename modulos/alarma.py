@@ -24,7 +24,7 @@ class alarma(object):
         self.BUZZER = vg.Pin_Salida2
         self.name = name
         self.Status = "EsperandoPuertaAbierta"
-        self.t = Thread( target= self.__run, daemon=False)
+        self.t = Thread( target= self.__run, daemon=False, name = name)
         self.t.start()
         
         
@@ -88,26 +88,26 @@ class alarma(object):
         if hbl.Contador_Buzzer:
             self.pi.write(self.BUZZER, hbl.OFF)
             
-        time.sleep(hbl.Contador_MaxTimeBlink)
+        time.sleep(hbl.Contador_LedIntrusoON)
         
         self.pi.write(self.LED,hbl.ON)
         if hbl.Contador_Buzzer:
             self.pi.write(self.BUZZER, hbl.ON)
             
-        time.sleep(hbl.Contador_MaxTimeBlink)
+        #time.sleep(hbl.Contador_MaxTimeBlink)
         
     def AlarmaPuertaAbierta(self):
         self.pi.write(self.LED,hbl.OFF)
         if hbl.Contador_Buzzer:
             self.pi.write(self.BUZZER, hbl.OFF)
             
-        time.sleep(hbl.Contador_MaxTimeAlarma)
+        time.sleep(hbl.Contador_LedPuertaAbiertaON)
         
         self.pi.write(self.LED,hbl.ON)
         if hbl.Contador_Buzzer:
             self.pi.write(self.BUZZER, hbl.OFF)
             
-        time.sleep(hbl.Contador_MaxTimeAlarma)
+        time.sleep(hbl.Contador_LedPuertaAbiertaON)
         
     def LogReport(self, texto, color):
         if self.log != None:

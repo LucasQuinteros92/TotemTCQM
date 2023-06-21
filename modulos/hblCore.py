@@ -370,15 +370,22 @@ def getVolumeNames(drive):
 
 def heartBeat(pi):
     ##auxiliar.EscribirFuncion("heartBeat")
-
+    
+    delay = 500
     try:
         while True:
             # heartBeat
             pi.write(variablesGlobales.Pin_LED2, hbl.OFF)    
-            delays.ms(500)      
+            delays.ms(delay)      
             pi.write(variablesGlobales.Pin_LED2, hbl.ON)  
-            delays.ms(500)
-       
+            delays.ms(delay)
+            if variablesGlobales.internet:
+                delay = 200
+            else:
+                delay = 2000
+            
+            
+                
     except Exception as e:  
 
         exc_type, exc_obj, exc_tb = sys.exc_info() 

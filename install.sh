@@ -1,6 +1,9 @@
 #!/bin/sh
 sudo su <<EOF
 
+pip3 install websocket
+pip3 uninstall websocket -y
+pip3 install websocket-client
 
 # editar archivo inicio /home/pi/.config/autostart/Start.desktop
 

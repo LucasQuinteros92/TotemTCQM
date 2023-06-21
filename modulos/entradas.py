@@ -118,64 +118,97 @@ class Entradas(object):
         #log.escribeLineaLog(hbl.LOGS_hblEntradas, "VG.pressTick : " + str(VG.pressTick)) 
         #log.escribeLineaLog(hbl.LOGS_hblEntradas, "tick : " + str(tick)) 
         #log.escribeLineaLog(hbl.LOGS_hblEntradas, "Diff : " + str(diff))  
-
+        if level :
+            level = 0
+        else:
+            level = 1
         VG.pressTick = tick
         VG.IR1 = level
-        
+        msg = ""
         if VG.contador:
+            msg = "C1Cont"
             if VG.IR2:
                 if VG.IR1:
+                    msg = "C1CSen"
                     if VG.Status == VG.Esperando_IR2:
                         VG.Status = VG.Esperando_IR1
-                        print("IR1: Vuelvo a Esperar por IR1 ")
+                        msg = "IR1: Vuelvo a Esperar por IR1 "
+                    #Saliente
+                    if VG.Status == VG.Esperando_IR1_IR2_Saliente:
+                        VG.Status = VG.Esperando_IR2_Saliente
+                        msg ="IR1: Esperando IR2 Saliente" 
                 else:
                     if VG.Status == VG.Esperando_IR1:
                         VG.Status = VG.Esperando_IR2
-                        print("IR1: Esperando IR2")
+                        msg ="IR1: Esperando IR2"
+                    #saliente
+                    elif VG.Status == VG.Esperando_IR2_Saliente:
+                        VG.Status = VG.Esperando_IR1_IR2_Saliente
+                        msg ="IR1: Vuelvo a esperar por IR1 IR2 saliente"
+                        
             else:
+                msg = "C1CNSen"
                 if VG.IR1:
                     if VG.Status == VG.Esperando_IR1:
                         VG.Status = VG.Esperando_IR1_IR2
-                        print("IR1: Esperando IR1 IR2")
+                        msg ="IR1: Esperando IR1 IR2"
                 else:
                     if VG.Status == VG.Esperando_IR2:
                         VG.Status = VG.Esperando_IR1
-                        print("IR1: vuelvo a Esperar  por IR1 ")
+                        msg ="IR1: vuelvo a Esperar  por IR1 "
                         
                     elif VG.Status == VG.Esperando_IR1_IR2:
-                        VG.Status = VG.Esperando_Reloj
-                        print("IR1: Vuelvo a esperar por el reloj")
-        else:   #SECUENCIA INTRUSOS / SALIDAS
-            if VG.IR2:
-                if VG.IR1:
-                    if VG.Status == VG.VerificacionIntruso3:
-                        VG.Status = VG.VerificacionIntruso2
-                        print("IR1: Vuelvo a verificacion 2")
-                    elif VG.Status == VG.Esperando_IR1_IR2_Saliente:
-                        VG.Status = VG.Esperando_IR2
-                        print("IR1: Esperando IR2 Saliente")
-                    
-                else:
-                    if VG.Status == VG.VerificacionIntruso2:
-                        print("IR1: veri intruso 3")
-                        VG.Status = VG.VerificacionIntruso3
-                    if VG.Status == VG.Esperando_IR2:
-                        VG.Status = VG.Esperando_IR1_IR2_Saliente
-                        print("IR1: Vuelvo a Esperarar por IR1 IR2 Saliente")
-                    
-            else:
-                if VG.IR1 and VG.Status == VG.Esperando_Reloj:
-                    print("IR1: Verificacion Intruso 1")
-                    VG.Status = VG.VerificacionIntruso
-                else:
-                    if VG.Status == VG.VerificacionIntruso:
-                        print("Vuelvo a Esperar Por el Reloj")
-                        VG.Status = VG.Esperando_Reloj
-                    if VG.Status == VG.Esperando_IR1_Saliente:
-                        print("Salida Confirmada")
+                        VG.Status = VG.Esperando_IR1
+                        msg = "IR1: vuelvo a Esperar  por IR1"
+                    #Saliente
+                    elif VG.Status == VG.Esperando_IR1_Saliente:
                         VG.Status = VG.Persona_Saliente
-            
-        print(str(level)+str(VG.IR2))
+                        msg ="IR1: Esperando por IR1"
+        else:   #SECUENCIA INTRUSOS / SALIDAS
+            if VG.flagPuerta:
+                msg = "C1P"
+                if VG.IR2:
+                    if VG.IR1:
+                        msg = "C1PSen"
+                        if VG.Status == VG.VerificacionIntruso3:
+                            VG.Status = VG.VerificacionIntruso2
+                            msg ="IR1: Vuelvo a verificacion 2"
+                        elif VG.Status == VG.Esperando_IR1_IR2_Saliente:
+                            VG.Status = VG.Esperando_IR2
+                            msg ="IR1: Esperando IR2 Saliente"
+                        
+                    else:
+                        if VG.Status == VG.VerificacionIntruso2:
+                            msg ="IR1: veri intruso 3"
+                            VG.Status = VG.VerificacionIntruso3
+                        if VG.Status == VG.Esperando_IR2:
+                            VG.Status = VG.Esperando_IR1_IR2_Saliente
+                            msg ="IR1: Vuelvo a Esperarar por IR1 IR2 Saliente"
+                        
+                else:
+                    msg = "C1NPSen"
+                    if VG.IR1 and VG.Status == VG.Esperando_Reloj:
+                        msg ="IR1: Verificacion Intruso 1"
+                        VG.Status = VG.VerificacionIntruso
+                    else:
+                        if VG.Status == VG.VerificacionIntruso:
+                            msg ="Vuelvo a Esperar Por el Reloj"
+                            VG.Status = VG.Esperando_Reloj
+                        if VG.Status == VG.Esperando_IR1_Saliente:
+                            msg ="Salida Confirmada"
+                            VG.Status = VG.Persona_Saliente
+        log.escribeSeparador(hbl.LOGS_hblEntradas)
+        log.escribeLineaLog(hbl.LOGS_hblEntradas,
+            "Status: "+msg + "\n" + \
+            "Sens: "+str(level)+str(VG.IR2) + "\n" + \
+            "contador:" + str(VG.contador) + "\n" + \
+            "puerta:" + str(VG.flagPuerta)
+        )
+        #print(msg)    
+        #print(str(level)+str(VG.IR2))
+        #print( VG.Status)
+        #print ("contador:", VG.contador)
+        #print ( VG.flagPuerta)
         if diff > hbl.DIG_in_pushDelay:
             pass
             #log.escribeSeparador(hbl.LOGS_hblEntradas)
@@ -198,63 +231,97 @@ class Entradas(object):
         #log.escribeLineaLog(hbl.LOGS_hblEntradas, "VG.pressTick : " + str(VG.pressTick)) 
         #log.escribeLineaLog(hbl.LOGS_hblEntradas, "tick : " + str(tick)) 
         #log.escribeLineaLog(hbl.LOGS_hblEntradas, "Diff : " + str(diff)) 
-
+        if level :
+            level = 0
+        else:
+            level = 1
         VG.pressTick = tick
-        VG.IR2 = level
-        
+        VG.IR2 =  level
+        msg = ""
         if VG.contador:
+            msg = "C2Cont"
             if VG.IR2:
                 if VG.IR1:
+                    msg = "C2CSen"
                     if VG.Status == VG.Esperando_IR1_IR2:
                         VG.Status = VG.Esperando_IR1
-                        print("IR2: Esperando IR1")
+                        msg ="IR2: Esperando IR1"
+                    #saliente
+                    elif VG.Status == VG.Esperando_IR1_Saliente:
+                        VG.Status = VG.Esperando_IR2_Saliente
+                        msg ="IR2: Vuelvo a Esperar por IR2 Saliente"
                       
                 else:
-                    pass
+                    #Saliente
+                    if VG.Status == VG.Esperando_IR1:
+                        VG.Status = VG.Esperando_IR1_IR2_Saliente
+                        msg ="IR2: Esperando IR1 IR2 Saliente"
+                      
             else:
+                msg = "C2CNSen"
                 if VG.IR1:
                     if VG.Status == VG.Esperando_IR1:
                         VG.Status = VG.Esperando_IR1_IR2
-                        print("IR2: vuelvo a Esperar por IR1 IR2")
-                    
+                        msg ="IR2: vuelvo a Esperar por IR1 IR2"
+                    #Saliente
+                    elif VG.Status == VG.Esperando_IR2_Saliente:
+                        VG.Status = VG.Esperando_IR1_Saliente
+                        msg ="IR2: Esperando IR1 Saliente"
                         
                 else:
                     if VG.Status == VG.Esperando_IR2:
                         VG.Status = VG.EntradaCompleta
-                        print("Entrada Valida")
+                        msg ="Entrada Valida"
+                    #Saliente
+                    elif VG.Status == VG.Esperando_IR1_IR2_Saliente:
+                        VG.Status = VG.Esperando_IR1
+                        msg ="IR2: Vuelvo A esperar por IR1"
             
         
         else:  #SECUENCIA INTRUSOS/SALIDAS
-            if VG.IR2:
-                if VG.IR1:
-                    if VG.Status == VG.VerificacionIntruso:
-                        print("IR2: veri intruso 2")
-                        VG.Status = VG.VerificacionIntruso2
-                    elif VG.Status == VG.Esperando_IR1_Saliente:
-                        VG.Status = VG.Esperando_IR2
-                        print("IR2: vuelvo a Esperando IR2 Saliente")  
+            if VG.flagPuerta :
+                msg = "C2P"
+                if VG.IR2:
+                    if VG.IR1:
+                        msg = "C2PSen"
+                        if VG.Status == VG.VerificacionIntruso:
+                            msg ="IR2: veri intruso 2"
+                            VG.Status = VG.VerificacionIntruso2
+                        elif VG.Status == VG.Esperando_IR1_Saliente:
+                            VG.Status = VG.Esperando_IR2
+                            msg ="IR2: vuelvo a Esperando IR2 Saliente"  
+                    else:
+                        if VG.Status == VG.Esperando_Reloj:
+                            VG.Status = VG.Esperando_IR1_IR2_Saliente
+                            msg ="IR2: esperando IR1 IR2 Saliente"
                 else:
-                    if VG.Status == VG.Esperando_Reloj:
-                        VG.Status = VG.Esperando_IR1_IR2_Saliente
-                        print("IR2: esperando IR1 IR2 Saliente")
-            else:
-                if VG.IR1 and VG.Status == VG.VerificacionIntruso2:
-                    VG.Status = VG.VerificacionIntruso
-                    print("IR2: Vuelvo a verif 1")
-                        
-                else:
-                    if VG.Status == VG.VerificacionIntruso3:
-                        print("IR2: verif Completa")
-                        VG.Status = VG.Intruso
-                    elif VG.Status == VG.Esperando_IR2:
-                        print("IR2 : Esperando IR1 Saliente")
-                        VG.Status = VG.Esperando_IR1_Saliente
-                    elif VG.Status == VG.Esperando_IR1_IR2_Saliente:
-                        print("IR2: Vuelvo a esperar por el reloj")
-                        VG.Status = VG.Esperando_Reloj
-                        
-        print(str(VG.IR1)+str(level))
-        
+                    msg = "C2PNSen"
+                    if VG.IR1 and VG.Status == VG.VerificacionIntruso2:
+                        VG.Status = VG.VerificacionIntruso
+                        msg ="IR2: Vuelvo a verif 1"
+                            
+                    else:
+                        if VG.Status == VG.VerificacionIntruso3:
+                            msg ="IR2: verif Completa"
+                            VG.Status = VG.Intruso
+                        elif VG.Status == VG.Esperando_IR2:
+                            msg ="IR2 : Esperando IR1 Saliente"
+                            VG.Status = VG.Esperando_IR1_Saliente
+                        elif VG.Status == VG.Esperando_IR1_IR2_Saliente:
+                            msg ="IR2: Vuelvo a esperar por el reloj"
+                            VG.Status = VG.Esperando_Reloj
+        log.escribeSeparador(hbl.LOGS_hblEntradas)
+        log.escribeLineaLog(hbl.LOGS_hblEntradas,
+            "Status: " +msg + "\n" + \
+            "Sens: "+str(VG.IR1)+str(level) + "\n" + \
+            "contador:" + str(VG.contador) + "\n" + \
+            "puerta:" + str(VG.flagPuerta)
+        )
+        #print ( msg )               
+        #print(str(VG.IR1)+str(level))
+        #print( VG.Status ) 
+        #print ("contador", VG.contador)
+        #print ( VG.flagPuerta)
         if diff > hbl.DIG_in_pushDelay: 
             pass
             #log.escribeSeparador(hbl.LOGS_hblEntradas)
@@ -276,7 +343,12 @@ class Entradas(object):
         if diff > hbl.DIG_in_pushDelay:
             
             log.escribeSeparador(hbl.LOGS_hblEntradas)
-            log.escribeLineaLog(hbl.LOGS_hblEntradas, "Puerta abierta")
+            if level == 1:
+                
+                log.escribeLineaLog(hbl.LOGS_hblEntradas, "Puerta abierta")
+            else:
+                log.escribeLineaLog(hbl.LOGS_hblEntradas, "Puerta cerrada")
+                VG.Status = VG.Esperando_Reloj
            
 
     

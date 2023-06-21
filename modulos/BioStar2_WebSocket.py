@@ -109,7 +109,7 @@ class BioStar2_WebSocket(object):
                                                     on_close=self.on_close)
                 
                 
-                self.t = Thread( target=self.__run, daemon=False)
+                self.t = Thread( target=self.__run, daemon=False, name = "BioWebsocket")
                 self.t.start()
             except Exception as e:
                 log.escribeLineaLog(hbl.LOGS_hblBioStar2_WebSocket,"Conexion no establecida")

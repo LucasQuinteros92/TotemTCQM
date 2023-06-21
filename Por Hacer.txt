@@ -42,3 +42,10 @@ X mail no bloqueante
 X mqtt no bloqueante
 
 X i2c no bloqueante
+
+   Mejorar el simbolo de internet
+   No se modifica si el internet se va
+  
+?  que la rpi funcione inicie sin internet pero se reinicie a la noche para conectarse 
+  
+   que envie los mails pendientes cuando haya internet pero que sea chequeando el contenido de Intrusos.txt

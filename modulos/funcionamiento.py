@@ -81,6 +81,7 @@ def TareaLeerWebSock():
 def TareaActualizarFichadasPendiente():
     if VG.LastDNI != VG.LastID:
         VG.contador += 1 
+        
         VG.LastDNI = VG.LastID
                         #NO SE MODIFICA LA VARIABLE DE LA CLASE, HAY QUE REFERIRSE
                         #A VG.CONTADOR DENTRO DE LA MAQ DE ESTADO

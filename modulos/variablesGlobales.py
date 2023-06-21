@@ -108,7 +108,7 @@ LastID = "" # Este es el ultimo ID que se recibio, ya sea del Wiegand, del Seria
 #TimerSalidas = 
 ResultadoCacheo = 0
 CharTeclado = ""
-
+internet = False
 
 
 ############################################################################
@@ -312,5 +312,6 @@ Intruso                     =  10
 Esperando_IR1_IR2_Saliente  =  11
 Esperando_IR1_Saliente      =  12
 Persona_Saliente            =  13
+Esperando_IR2_Saliente      =  14
 
 

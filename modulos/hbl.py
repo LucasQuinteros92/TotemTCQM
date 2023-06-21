@@ -206,6 +206,9 @@ def cargarParametros(archivo):
     global DISPLAY_line1
     global DISPLAY_line2
     global DISPLAY_line3
+    global DISPLAY_Internet
+    global DISPLAY_Internet_fila
+    global DISPLAY_Internet_columna
 
     global NETWORK_activado
 
@@ -315,19 +318,23 @@ def cargarParametros(archivo):
     global Audio_path_ErrorDNI
 
     global Contador_activado
-    global Contador_MaxTimeIN              
-    global Contador_MaxTimeAlarma          
-    global Contador_MaxTimeBlink           
+    global Contador_SegundosParafichar         
+    global Contador_LedPuertaAbiertaON          
+    global Contador_LedIntrusoON           
     global Contador_MaxTimeLEDCicloCompleto
-    global Contador_MaxTimePuerta          
-    global Contador_MaxTimeEnable       
-    global Contador_MaxTimeDisable    
-    global Contador_TiempoBlinkAlarmaPuerta
+    global Contador_MaxTimePuertaAbierta          
+    global Contador_MaxTimeAlarmaPuertaAbiertaActivada       
+    global Contador_MaxTimeAlarmaPuertaAbiertaDesactivada    
+    
     global Contador_IntrusosPendientesPath
     global Contador_ID
+    global Contador_RED
     global Contador_Buzzer
     global Contador_MailPuertaAbierta
     global Contador_DebugSensores
+    global Contador_Noreseth1
+    global Contador_Noreseth2
+    global Contador_intentos_conexion
     
     global Mail_destinatarios
     global Mail_remitente
@@ -598,11 +605,14 @@ def cargarParametros(archivo):
     IDHBL=data["IDHBL"] 
 
 
-    DISPLAY_activado  =  data["display"]["activado"]
-    DISPLAY_line0     =  data["display"]["line0"]
-    DISPLAY_line1     =  data["display"]["line1"]
-    DISPLAY_line2     =  data["display"]["line2"]
-    DISPLAY_line3     =  data["display"]["line3"]
+    DISPLAY_activado           =  data["display"]["activado"]
+    DISPLAY_line0              =  data["display"]["line0"]
+    DISPLAY_line1              =  data["display"]["line1"]
+    DISPLAY_line2              =  data["display"]["line2"]
+    DISPLAY_line3              =  data["display"]["line3"]
+    DISPLAY_Internet           =  data["display"]["internet"]["activado"]
+    DISPLAY_Internet_fila      =  data["display"]["internet"]["fila"]
+    DISPLAY_Internet_columna   =  data["display"]["internet"]["columna"] 
     
     # network
     NETWORK_activado=data["network"]["activado"]
@@ -715,20 +725,23 @@ def cargarParametros(archivo):
     BioStar2_WebSocket_BioStar2_Password=data["BioStar2_WebSocket"]["BioStar2_Password"]
 
     #CONTADOR DE PERSONAS
-    Contador_activado                = data["ContadorPersonas"]["activado"]
-    Contador_MaxTimeIN               = data["ContadorPersonas"]["MaxTimeIN"]
-    Contador_MaxTimeAlarma           = data["ContadorPersonas"]["MaxTimeAlarma"]
-    Contador_MaxTimeBlink            = data["ContadorPersonas"]["MaxTimeBlink"]
-    Contador_MaxTimeLEDCicloCompleto = data["ContadorPersonas"]["MaxTimeLEDCicloCompleto"]
-    Contador_MaxTimePuerta           = data["ContadorPersonas"]["MaxTimePuerta"]
-    Contador_MaxTimeEnable           = data["ContadorPersonas"]["MaxTimeEnable"]
-    Contador_MaxTimeDisable          = data["ContadorPersonas"]["MaxTimeDisable"]
-    Contador_TiempoBlinkAlarmaPuerta = data["ContadorPersonas"]["TiempoBlinkAlarmaPuerta"]
-    Contador_IntrusosPendientesPath  = data["ContadorPersonas"]["IntrusosPendientesPath"]
-    Contador_ID                      = data["ContadorPersonas"]["ID"]
-    Contador_Buzzer                  = data["ContadorPersonas"]["Buzzer"]
-    Contador_MailPuertaAbierta       = data["ContadorPersonas"]["MailPuertaAbierta"]
-    Contador_DebugSensores           = data["ContadorPersonas"]["DebugSensores"]
+    Contador_activado                              = data["ContadorPersonas"]["activado"]
+    Contador_SegundosParafichar                    = data["ContadorPersonas"]["tiempos"]["SegundosParafichar"]
+    Contador_LedPuertaAbiertaON                    = data["ContadorPersonas"]["tiempos"]["LedPuertaAbiertaON"]
+    Contador_LedIntrusoON                          = data["ContadorPersonas"]["tiempos"]["LedIntrusoON"]
+    Contador_MaxTimeLEDCicloCompleto               = data["ContadorPersonas"]["tiempos"]["MaxTimeLEDCicloCompleto"]
+    Contador_MaxTimePuertaAbierta                  = data["ContadorPersonas"]["tiempos"]["MaxTimePuertaAbierta"]
+    Contador_MaxTimeAlarmaPuertaAbiertaActivada    = data["ContadorPersonas"]["tiempos"]["MaxTimeAlarmaPuertaAbiertaActivada"]
+    Contador_MaxTimeAlarmaPuertaAbiertaDesactivada = data["ContadorPersonas"]["tiempos"]["MaxTimeAlarmaPuertaAbiertaDesactivada"]
+    Contador_IntrusosPendientesPath                = data["ContadorPersonas"]["IntrusosPendientesPath"]
+    Contador_ID                                    = data["ContadorPersonas"]["credenciales"]["ID"]
+    Contador_RED                                   = data["ContadorPersonas"]["credenciales"]["Red"]
+    Contador_Buzzer                                = data["ContadorPersonas"]["opciones"]["Buzzer"]
+    Contador_MailPuertaAbierta                     = data["ContadorPersonas"]["opciones"]["MailPuertaAbierta"]
+    Contador_DebugSensores                         = data["ContadorPersonas"]["opciones"]["DebugSensores"]
+    Contador_Noreseth1                             = data["ContadorPersonas"]["noreseth1"]
+    Contador_Noreseth2                             = data["ContadorPersonas"]["noreseth2"]
+    Contador_intentos_conexion                     = data["ContadorPersonas"]["IntentosConexion"]
     
     #Mails
     Mail_activado = data["Mail"]["activado"]

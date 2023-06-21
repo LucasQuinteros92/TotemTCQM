@@ -365,7 +365,7 @@ def getData(vendor_ID, product_ID, bufferSize, timeout, endpoint):
       
     for i in range(len(device)):
         c = dispositivosHID(pi)
-        t = threading.Thread(target=c.run, args=(device, i, bufferSize, timeout, int(endpoint, 0)))
+        t = threading.Thread(target=c.run,name = i, args=(device, i, bufferSize, timeout, int(endpoint, 0)))
         threads.append(t)
         t.start() 
 

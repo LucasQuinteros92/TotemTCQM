@@ -22,7 +22,7 @@ class Salidas:
 
         self.pi : pigpio.pi = pi 
 
-        self.pi.write(out1, hbl.OFF)   
+        self.pi.write(out1, hbl.ON)   
         self.pi.write(out2, hbl.ON) 
         self.pi.write(out3, hbl.OFF) 
         self.pi.write(out4, hbl.OFF)

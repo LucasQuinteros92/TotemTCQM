@@ -24,7 +24,7 @@ class Puerta(object):
     #                  mails      ->  seria otra tarea pero cada puerta podria reportar a gente distinta
     
     '''
-    "MaxTimeIN": 120,
+    "SegundosParafichar": 120,
     "MaxTimeAlarma": 0.5,
     "MaxTimeBlink": 3,
     "MaxTimeLEDCicloCompleto": 1000,
@@ -51,6 +51,7 @@ class Puerta(object):
             
             self.EstadoPuerta = 0
             self.lcd1 = lcd1
+            
             self.pi.write(vg.Pin_Salida1,hbl.ON)
             #
             #VARIABLES ASOCIADAS A LA MAQ DE EST
@@ -66,30 +67,32 @@ class Puerta(object):
             self.ClienteMqtt = ClienteMqtt
             self.ClienteMqtt.handlerRecv = self.__Leer_Ordenes_Server
             self.mail = SendMail()
+            self.Router = RouterWifi(self.pi, vg.Pin_Salida3)
             self.entrantes = 0
             self.salientes = 0
-            
-
-            
+            self.FueraDeHorario = False
+            self.cuentaAcumulada = 0
+            self.conexionesFallidas = 0
+        
             #
             #TAREAS
             #
-            self.log = log.LogReport() 
+            self.log = log.LogReport(name = "logControlPersonal") 
                        
             self.thread = Thread( target=self.__Control_FSM,
-                                  daemon=False)
+                                  daemon=False, name = "ControlPersonal")
             
             self.Alarma = alarma( self.pi, name= "Alarma", logObject=self.log)
             
             self.timerFichada = temporizador(self.log,
-                                             self.MaxTimeIN, 
+                                             self.SegundosParafichar, 
                                              self.__cbFichadavencida, 
                                              name="TimerFichada",
                                              debug=True
                                              )
             
             self.timerPuertaAbierta = temporizador(self.log,
-                                                   5,  
+                                                   self.MaxTimePuertaAbierta,  
                                                    self.__cbAlarmaPuertaAbierta,
                                                    name="TimerAlarmaPuertaAbierta",
                                                    debug=True,
@@ -99,26 +102,70 @@ class Puerta(object):
                 #"MaxTimeEnable": 180,
                 #"MaxTimeDisable": 420,
             
-            self.timerReloj = temporizador(self.log,60, self.__cbTimerReloj,
+            self.timerReloj = temporizador(self.log,30, self.__cbTimerReloj,
                                                    name="TimerReloj")
             
             self.timerReport = temporizador(self.log,60, self.__InformarServidor,
                                                 name = "TimerReport",
                                                 debug=False)
+            
+            
             self.timerReport.start()
             self.timerReloj.start()
             self.thread.start()
             self.__LogReport("Modo Contador Inicializado")
+            
+            
+            while not self.ClienteMqtt.connected: 
+                time.sleep(1)
 
-            if auxiliar.CheckInternet():
-                self.ClienteMqtt.publish("Contador: " + hbl.Contador_ID)
+            if self.__ChequearHora():
+            
+                self.ClienteMqtt.publish(   '{ "ID"  : "' + hbl.Contador_ID + '",\
+                                                "Entrantes"  :"' + str(self.entrantes) + '",   \
+                                                "Salientes" : "' + str(self.salientes) + '", \
+                                                "RED":"'          + hbl.Contador_RED+ '",\
+                                                "HORA":"'+ str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+'"}')
+            
+            if vg.internet:
+                self.lcd1.internet()
 
-    
     #metodos privados
     def __cbTimerReloj(self):
         self.timerReloj.stop()
-        self.lcd1.lcdWrite(0,str(datetime.datetime.now().strftime("  %d/%m/%Y %H:%M")))
+        if not vg.IR1 and not vg.IR2: 
+            self.lcd1.reset(self.CantidadDePersonas)
+        else:
+
+            time = str(datetime.datetime.now().strftime("  %d/%m/%Y %H:%M"))
+            self.lcd1.lcdWrite(0,time)
+            self.lcd1.internet()
+
+        if self.__ChequearHora():
+            if not self.Router.estaEncendido():
+                self.Router.encender()
+        else:
+            if not self.mail.pendientes:
+                
+                self.Router.apagar()
+                self.conexionesFallidas = 0
+        
+                
+            self.CantidadDePersonas = 0
+            self.entrantes = 0
+            self.salientes = 0
+            #print(self.CantidadDePersonas, self.entrantes, self.salientes)
+            self.Actualizarlcd()
+            
         self.timerReloj.start()
+        
+    def __ChequearHora(self):
+        hora = datetime.datetime.now().strftime("%H%M")
+        #print(hora)
+        #print(self.mail.pendientes)
+        if (hbl.Contador_Noreseth1 < int(hora) < hbl.Contador_Noreseth2):
+            return True
+        return False
         
     def __Leer_Ordenes_Server(self, client, userdata, msg): 
         try:
@@ -126,15 +173,21 @@ class Puerta(object):
             self.ClienteMqtt.LogReport(f"Received from {msg.topic} topic: \n{data} ")
             data = json.loads(data)
             
-            
-            ID  = data.get("ID").strip(" ")
-            cantidad = data.get("CANTIDAD")
-            if ID == hbl.Contador_ID.strip(" ") and cantidad != None :
-                self.CantidadDePersonas = int(cantidad)
-                self.entrantes = 0
-                self.salientes = 0
-                
-                self.Actualizarlcd() 
+            ID = data.get("ID").strip(" ")
+            RED  = data.get("RED").strip(" ")
+            cantidad = int(data.get("CANTIDAD"))
+            if self.__ChequearHora():
+                if RED == hbl.Contador_RED and cantidad != None :
+                    
+                    if cantidad != self.CantidadDePersonas:
+                        self.CantidadDePersonas = cantidad
+                        self.__LogReport("Cantidad modificada por el server a: " \
+                                         + str(self.CantidadDePersonas),color="y")
+                    if ID == hbl.Contador_ID.strip(" "):
+                        self.entrantes = 0
+                        self.salientes = 0
+                    
+                    self.Actualizarlcd() 
         except:
             pass
     
@@ -147,27 +200,27 @@ class Puerta(object):
         # y despues volver a la operacion normal
         self.__Timer()
         self.timerPuertaAbierta.stop()
+        Estado = self.timerPuertaAbierta.status()
         
-        #si se vence el timer de la puerta abierta paso a activar la alarm
-        if self.timerPuertaAbierta.status() == "PuertaAbierta":
-            self.timerPuertaAbierta.setEncendido(self.MaxTimeEnable)
+        #si se vence el timer de la puerta abierta paso a activar la alarma
+        #si no se cerro la puerta se activa la alarma nuevamente
+        if Estado == "PuertaAbierta" or Estado == "AlarmaDesactivada":
+            self.timerPuertaAbierta.setEncendido(self.MaxTimeAlarmaPuertaAbiertaActivada)
             self.mail.sendDoorMail()
             self.Alarma.SonarAlarmaPuertaAbierta()
+            self.__LogReport("La puerta esta abierta sonara la alarma", color= "r")
             
         #si la puerta no se cerro apago la alarma
-        elif self.timerPuertaAbierta.status() == "AlarmaSonando":
-            self.timerPuertaAbierta.setDesactivado(self.MaxTimeDisable)
+        elif Estado == "AlarmaSonando":
+            self.timerPuertaAbierta.setDesactivado(self.MaxTimeAlarmaPuertaAbiertaDesactivada)
             self.Alarma.stop()
-            
-        #si no se cerro la puerta se activa la alarma nuevamente
-        elif self.timerPuertaAbierta.status() == "AlarmaDesactivada":
-            self.timerPuertaAbierta.setEncendido(self.MaxTimeEnable)
-            self.Alarma.SonarAlarmaPuertaAbierta()
+            self.__LogReport("La puerta sigue abierta se desactivara la alarma", color= "r")
 
         self.timerPuertaAbierta.start()
         
     def __cbFichadavencida(self):
         vg.contador -= 1
+        self.cuentaAcumulada -= 1
         if vg.contador > 0:
             #print(f"Fichada Descontada {vg.contador}")
             self.timerFichada.start()
@@ -176,35 +229,10 @@ class Puerta(object):
             vg.contador = 0
             
             vg.Status = vg.Esperando_Reloj
+        self.__LogReport("Fichada Vencida",color= "r")
         vg.LastDNI = 99999999
     
-    def __LeerEntradas(self):
-        #self.IR1 =  self.pi.read(vg.Pin_Entrada1)
-        #self.IR2 =  self.pi.read(vg.Pin_Entrada2)
-        
-        #self.prevEstadoPuerta = self.EstadoPuerta
-        #self.EstadoPuerta  = self.pi.read(vg.Pin_Entrada3)
-        '''
-        if  vg.auxIR1 != self.IR1 and vg.auxIR2 != self.IR2:
-            #self.lcd1.lcdWrite(2, str(vg.auxIR1) + str(vg.auxIR2),debug= True)
-            
-            vg.auxIR2 = self.IR2
-            vg.auxIR1 = self.IR1
-            print(str(self.IR1) + str(self.IR2))
-            
-        elif vg.auxIR1 != self.IR1:
-            #self.lcd1.lcdWrite(2, str(vg.auxIR1) + '0',debug= True)
-            
-            vg.auxIR1 = self.IR1
-            print(str(self.IR1) + str(self.IR2))
-                
-        elif vg.auxIR2 != self.IR2:
-            #self.lcd1.lcdWrite(2, '0' + str(vg.auxIR2) ,debug= True)
-            
-            vg.auxIR2 = self.IR2
-            print(str(self.IR1) + str(self.IR2))
-        '''
-    
+
     def __Timer(self):
         self.prevEstadoPuerta = self.EstadoPuerta
         self.EstadoPuerta  = self.pi.read(vg.Pin_Entrada3)
@@ -223,7 +251,7 @@ class Puerta(object):
                 self.timerPuertaAbierta.Status = "PuertaCerrada"
                 self.timerPuertaAbierta.stop()
                 if self.Alarma.Status == "PuertaAbierta":
-                    
+                    self.__LogReport("Se cerro la puerta", color="g")
                     self.Alarma.Status = ""
                     self.Alarma.stop()
                 print("timer detenido")
@@ -232,10 +260,17 @@ class Puerta(object):
     def __Control_FSM(self):
         while True:
             self.__Timer()
+            if hbl.Contador_DebugSensores:
+                self.lcd1.lcdWrite(debug = True, message=str(vg.IR1)+str(vg.IR2))
+                
+            if vg.contador != self.cuentaAcumulada:
+                for i in range(vg.contador - self.cuentaAcumulada):
+                    self.fichada()
+                self.cuentaAcumulada = vg.contador
+            
             if vg.Status == vg.Esperando_Reloj:   
                 if vg.contador:
-                    
-                    self.fichada()
+
                     vg.Status = vg.Esperando_IR1
                     
             elif vg.Status == vg.EntradaCompleta:
@@ -254,141 +289,21 @@ class Puerta(object):
                     vg.Status = vg.Esperando_Reloj
                     
                 
-    
-    '''    
-    def __Control_FSM(self):
-        while True:
-            #self.__LeerEntradas()
-            #self.__Timer()
-            #
-            #DETECCION DE RUTINA
-            # 
-            if vg.Modo == vg.Esperando:
-                if vg.Status == vg.Esperando_Reloj:
-                    if vg.IR1 and not vg.IR2 and not vg.contador:
-                        
-                        vg.Modo = vg.Intruso
-                        #self.__LogReport("Posible Intruso, verificando sentido")
-                        
-                    if vg.contador:
-                        
-                        self.fichada()
-                        #self.__LogReport("Esperando IR1")
-                        vg.Status = vg.Esperando_IR1
-                        
-                    if not vg.IR1 and vg.IR2:
-                        pass
-                        #vg.Status = vg.Esperando_IR1_IR2_Saliente
-                        #self.__LogReport("Posible Saliente")
-            #
-            #SECUENCIA ENTRANTE
-            # 
-            
-            elif vg.Modo == vg.Entrante:
-                
-                if vg.Status == vg.Esperando_IR1:
-                    if vg.IR1 and not vg.IR2:
-            
-                        #self.__LogReport("Esperando IR1 y IR2")
-                        vg.Status = vg.Esperando_IR1_IR2
-                        
-                elif vg.Status == vg.Esperando_IR1_IR2:
-                    if vg.IR1 and vg.IR2:
-
-                        #self.__LogReport("Esperando IR2")
-                        vg.Status = vg.Esperando_IR2
-                        
-                elif vg.Status == vg.Esperando_IR2:
-                    if not vg.IR1 and vg.IR2:
-
-                        #self.__LogReport("Esperando que se libere IR2")
-                        vg.Status = vg.Esperando_CompletarCiclo
-                        
-                elif vg.Status == vg.Esperando_CompletarCiclo:
-                    if not vg.IR1 and not vg.IR2:
-                        self.ingresoValido()
-                    
-            #
-            #SECUENCIA INTRUSO
-            #
-            elif vg.Modo == vg.Intruso:
-                
-                if vg.Status == vg.VerificacionIntruso: #s1 = 1 , s2 = 0
-                    if vg.IR1 and vg.IR2 and self.EstadoPuerta:
-                        vg.Status = vg.VerificacionIntruso2
-                        #self.__LogReport("verificacion de intruso 1")
-                        
-                    elif not vg.IR1 and not vg.IR2:
-                        vg.Status = vg.Esperando_Reloj
-                        
-                elif vg.Status == vg.VerificacionIntruso2: #s1 = 1 , s2 = 1
-                    if not vg.IR1 and vg.IR2 and self.EstadoPuerta:
-                        #self.__LogReport("Verificacion de intruso 2")
-                        vg.Status = vg.VerificacionIntruso3
-                        
-                    elif vg.IR1 and not vg.IR2:
-                        vg.Status = vg.VerificacionIntruso
-                        
-                elif vg.Status == vg.VerificacionIntruso3:
-                    if not vg.IR1 and not vg.IR2 and self.EstadoPuerta:
-                        vg.Status = vg.Esperando_Reloj
-                        #self.__LogReport("Verificacion de intruso completa sonara la alarma", "full")
-                        #
-                        # Rutina de aviso
-                        #
-                        self.intruso_detectado()
-                        
-                    elif vg.IR1 and vg.IR2:
-                        vg.Status = vg.VerificacionIntruso2
-            #
-            #SECUENCIA SALIENTE
-            #
-            elif vg.Modo == vg.Saliente:
-                        
-                if vg.Status == vg.Esperando_IR1_IR2_Saliente:#s1 = 0 , s2 = 1
-                    if vg.IR1 and vg.IR2 and self.EstadoPuerta:
-                        #self.__LogReport("Posible Intruso Estado:Esperando IR1 IR2 Saliente")
-                        vg.Status = vg.Esperando_IR1_Saliente
-                        
-                    if not vg.IR1 and not vg.IR2:
-                        vg.Status = vg.Esperando_Reloj
-                    
-                elif vg.Status == vg.Esperando_IR1_Saliente:# s1 = 1 , s2 = 1
-                    if self.IR1 and not self.IR2 and self.EstadoPuerta:
-                        
-                        #self.__LogReport("Intruso casi confirmado Estado: Esperando IR1 Saliente")
-                        vg.Status = vg.Confirmando_Saliente
-                        
-                    elif not self.IR1 and self.IR2:
-                        vg.Status = vg.Esperando_IR1_IR2_Saliente
-                        
-                    
-                elif vg.Status == vg.Confirmando_Saliente:# s1 = 1 , s2 = 0
-                    if not vg.IR1 and not vg.IR2 and self.EstadoPuerta:
-
-                        self.salida()
-                        vg.Status = vg.Esperando_Reloj
-                        
-                    elif vg.IR1 and vg.IR2:
-                        vg.Status = vg.Esperando_IR1_Saliente
-                    
-            #time.sleep(self.MaxTimeCheck)
-    '''
     def __setTiempos(self):
-        self.MaxTimeIN               = hbl.Contador_MaxTimeIN                      #Tiempo de gracia que se le da a la persona para finalizar el ingreso una vez que ficho            self.MaxTimeCheck            =  0.02
-        self.MaxTimeAlarma           = hbl.Contador_MaxTimeAlarma                  #Quizas innecesario reemplazado por maxtimeEnable
-        self.MaxTimeBlink            = hbl.Contador_MaxTimeBlink                   #Tiempo que blinkea la alarma por intruso
-        self.MaxTimeLEDCicloCompleto = hbl.Contador_MaxTimeLEDCicloCompleto        
-        self.MaxTimePuerta           = hbl.Contador_MaxTimePuerta                  #Tiempo que tiene que estar la puerta abierta para que empiece a sonar el buzzer
-        self.MaxTimeEnable           = hbl.Contador_MaxTimeEnable                  #Tiempo que pasa la alarma encendida por puerta abierta
-        self.MaxTimeDisable          = hbl.Contador_MaxTimeDisable                 #Tiempo que pasa la alarma por puerta abierta desactivada
-        self.TiempoBlinkAlarmaPuerta = hbl.Contador_TiempoBlinkAlarmaPuerta                     
-        self.MaxTimeCheck            = 0.002                                       #Tiempo entre iteraciones en la maquina de estados
-
+        self.SegundosParafichar                   = hbl.Contador_SegundosParafichar             #Tiempo de gracia que se le da a la persona para finalizar el ingreso una vez que ficho            self.MaxTimeCheck            =  0.02
+        self.LedPuertaAbiertaON                   = hbl.Contador_LedPuertaAbiertaON                  #Quizas innecesario reemplazado por maxtimeEnable
+        self.LedIntrusoON                         = hbl.Contador_LedIntrusoON                   #Tiempo que blinkea la alarma por intruso
+        self.MaxTimeLEDCicloCompleto              = hbl.Contador_MaxTimeLEDCicloCompleto        #sin uso
+        self.MaxTimePuertaAbierta                 = hbl.Contador_MaxTimePuertaAbierta           #Tiempo que tiene que estar la puerta abierta para que empiece a sonar el buzzer
+        self.MaxTimeAlarmaPuertaAbiertaActivada   = hbl.Contador_MaxTimeAlarmaPuertaAbiertaActivada                  #Tiempo que pasa la alarma encendida por puerta abierta
+        self.MaxTimeAlarmaPuertaAbiertaDesactivada= hbl.Contador_MaxTimeAlarmaPuertaAbiertaDesactivada                 #Tiempo que pasa la alarma por puerta abierta desactivada
+        
+                       
     def fichada(self):
         #inicio timer tiempo de gracia para fichar
         self.timerFichada.start()
-        self.lastIN = datetime.datetime.now() 
+        self.lastIN = str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        self.__LogReport("Fichada recibida",color="y")
 
     def salida(self):
         if self.CantidadDePersonas > 0:
@@ -416,40 +331,28 @@ class Puerta(object):
         
     def intruso_detectado(self):
         
+        CheckInternet()
         self.LastAlarma = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         self.CantidadDePersonas += 1
         self.Alarma.SonarAlarmaIntruso()
         self.actualizarCantidadDePersonas("+1","si")
         self.__LogReport(" Intruso detectado ","full","r")
         
-        if auxiliar.CheckInternet():
-            print("Envio el mail si esta activado\n")
-            self.mail.sendIntrusoMail()
-        else:
-            print("Agrego intruso \n")
-            self.add_intruso(str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
-    
-    def __LogReport(self, mensaje, modo = None, color = None):
-        self.log.EscribirLinea(hbl.LOGS_hblPuerta)
+        if not self.__ChequearHora():
+            self.Router.enceder()
+            
         
-        if modo == 'full':
-            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"PersonasDentro: "+ str(self.CantidadDePersonas))
-            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"UltimaEntrada: "+ str(self.lastIN))
-            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado Puerta: "+ str(self.EstadoPuerta))
-            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado: "+ str(self.Status))
-            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last DNI: "+ str(vg.LastDNI))
-            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last Alarma: "+ str(self.LastAlarma))
+        self.lcd1.internet()
         
-        self.log.EscribirLinea(hbl.LOGS_hblPuerta,mensaje,color) 
-    
-    
-    def add_intruso(self, date):
-        myFile = open(hbl.Contador_IntrusosPendientesPath, 'a')
+        self.mail.sendIntrusoMail()
 
-        with myFile:
-            myFile.write(date + "\n")
-            myFile.close() 
-        self.mail.pendientes = True 
+
+    def actualizarCantidadDePersonas(self,personas : str ,intruso : str = "no"):
+        self.Actualizarlcd()
+        if personas == "+1":
+            self.entrantes += 1
+        else:
+            self.salientes += 1
             
     def Actualizarlcd(self):
         espacios = "          "
@@ -461,25 +364,80 @@ class Puerta(object):
             espacios = espacios[:-quitar]
         #print(aux+str(self.CantidadDePersonas))
          
-        self.lcd1.lcdWrite(2,espacios+str(self.CantidadDePersonas))
-
-    def actualizarCantidadDePersonas(self,personas : str ,intruso : str = "no"):
-        self.Actualizarlcd()
-        if personas == "+1":
-            self.entrantes += 1
-        else:
-            self.salientes += 1
-        
+        self.lcd1.lcdWrite(2,espacios+str(self.CantidadDePersonas))   
+         
     def __InformarServidor(self):
         self.timerReport.stop()
+        CheckInternet()
         if not self.IR1 and not self.IR2 and (self.entrantes != 0 or self.salientes != 0):
-            if auxiliar.CheckInternet():
+            if vg.internet and self.__ChequearHora():
                 self.ClienteMqtt.publish(   '{ "ID"  : "' + hbl.Contador_ID + '",\
                                             "Entrantes"  :"' + str(self.entrantes) + '",   \
-                                            "Salientes" : "' + str(self.salientes) + '"  }')
-                            
+                                            "Salientes" : "' + str(self.salientes) + '", \
+                                            "RED":"'          + hbl.Contador_RED+ '",     \
+                                            "HORA":"'+ str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+'"}')
+        if self.__ChequearHora():
+            self.RouterWifiHandler()
+        
         self.timerReport.start()
-
-
+        
+    def RouterWifiHandler(self):
+        if not vg.internet:
+            
+            self.__LogReport("Desconectado",color="r")
+            self.conexionesFallidas += 1
+            
+            if self.conexionesFallidas == hbl.Contador_intentos_conexion:
+                self.Router.apagar(0)
+                self.__LogReport("Apagando Modem",color="r")
+                
+            elif self.conexionesFallidas == hbl.Contador_intentos_conexion + 1:
+                self.conexionesFallidas = 0
+                self.Router.enceder(1)
+                self.__LogReport("Encendiendo Modem",color="r")
+                
+        else:
+            if self.conexionesFallidas != 0:
+                self.conexionesFallidas = 0
+                self.__LogReport("Conectado",color="r")
+  
+    
         
         
+    def __LogReport(self, mensaje, modo = None, color = None):
+        self.log.EscribirLinea(hbl.LOGS_hblPuerta)
+        
+        if modo == 'full':
+            
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"PersonasDentro: "+ str(self.CantidadDePersonas))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"UltimaEntrada: "+ str(self.lastIN))
+            if not self.EstadoPuerta:
+                Puerta = 'Cerrada'
+            else:
+                Puerta = 'Abierta'
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado Puerta: "+ Puerta)
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado Internet: "+ str(vg.internet))
+            #self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado: "+ str(self.Status))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last DNI: "+ str(vg.LastDNI))
+            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last Alarma: "+ str(self.LastAlarma))
+        
+        self.log.EscribirLinea(hbl.LOGS_hblPuerta,mensaje,color)     
+        
+class CheckInternet(object):
+    def __init__(self) -> None:
+        self.t = Thread(target= auxiliar.CheckInternet,daemon= False, name = "CheckInternet")
+        self.t.start()    
+
+class RouterWifi(object):
+    def __init__(self, pi, pinsalida ) -> None:
+        self.pi : pigpio.pi = pi
+        self.pinsalida = pinsalida
+    def encender(self):
+        self.pi.write(self.pinsalida, 1 )
+    
+    def apagar(self):
+        self.pi.write(self.pinsalida, 0 )
+    
+    
+    def estaEncendido(self):
+        return self.pi.read(self.pinsalida)

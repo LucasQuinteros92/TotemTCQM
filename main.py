@@ -2,12 +2,12 @@
 
 """ --------------------------------------------------------------------------------------------
 
-    _   _ ____  _     
-   | | | | __ )| |    
-   | |_| |  _ \| |    
-   |  _  | |_) | |___ 
+    _   _ ____  _
+   | | | | __ )| |
+   | |_| |  _ \| |
+   |  _  | |_) | |___
    |_| |_|____/|_____|
-                   
+
    (Hardware building layers)
    v1.0
 
@@ -41,6 +41,8 @@ from modulos import funcionamiento as funcionamiento
 from modulos import Control_Personal as CP
 from modulos import SendMail
 from modulos import BioStar2_WebSocket
+from modulos import heartbeat
+from modulos import auxiliar
 
 from modulos.decoderWiegand import Decoder
 from modulos.encoderWiegand import Encoder
@@ -124,9 +126,7 @@ if __name__ == "__main__":
             main.Encoder(pi, variablesGlobales.Pin_W2_WD0,
                          variablesGlobales.Pin_W2_WD1)
 
-    # inicializa displays LCD
-    # i2cDevice.inicializacion(pi)
-    lcd1 = i2cDevice.Lcd(pi)
+
 
     # inicializa dispositivos HID
     hidDevice.inicializacion(pi)
@@ -140,6 +140,9 @@ if __name__ == "__main__":
 
     # configuracion de interfaces de red ETH/WLAN
     conexiones.NetworkConfig()
+
+
+    CP.CheckInternet()
 
     # iniciaizacion GSM Modem ppp0
     conexiones.GSM_Modem_Init()
@@ -157,6 +160,9 @@ if __name__ == "__main__":
     tcp.inicializacion(pi)
 
     kiosco.inicializacion()
+    # inicializa displays LCD
+    # i2cDevice.inicializacion(pi)
+    lcd1 = i2cDevice.Lcd(pi)
 
     ClienteMqtt = MQTT.ClientMqtt(hbl.MQTT_broker,
                                   hbl.MQTT_port,
@@ -172,9 +178,10 @@ if __name__ == "__main__":
 
     b = datetime.datetime.now()
     print("HBL READY")
-    # heartbeat hblCore
+
+    heartbeat.heartbeat(pi)
     while True:
-        # hblCore.heartBeat(pi)
+
 
         a = datetime.datetime.now()
         funcionamiento.Control(pi)

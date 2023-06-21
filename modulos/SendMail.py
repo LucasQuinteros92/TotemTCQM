@@ -34,15 +34,23 @@ class SendMail(object):
         
         self.count = 0
         if hbl.Mail_activado == 1:
-            self.t = Thread(target = self.__run, daemon= False)
+            self.t = Thread(target = self.__run, daemon= False, name = "Mails")
             self.t.start()
 
     def sendIntrusoMail(self):
+            self.count += 1
         
-        self.count += 1
         
     def sendDoorMail(self):
         self.door = True   
+        
+    def add_intruso(self, date):
+        myFile = open(hbl.Contador_IntrusosPendientesPath, 'a')
+
+        with myFile:
+            myFile.write(date + "\n")
+            myFile.close() 
+        self.pendientes = True 
         
     def __LogReport(self, texto):
         log.escribeSeparador(hbl.LOGS_hblMail)
@@ -51,84 +59,113 @@ class SendMail(object):
     def __run(self):
         if hbl.Mail_activado == 1:
             while True:
-                if auxiliar.CheckInternet():
-                    if self.count > 0:
-                        self.count -= 1
-                        self.email = EmailMessage()
-                        
-                        self.email["From"] = hbl.Mail_remitente
-                        self.email["To"] = hbl.Mail_destinatarios
-                        self.email["Subject"] = hbl.Mail_subject
-                        
-
-                        date = str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-                        try:
-                            mensaje = "<html><body><h1> Se ha detectado un intrusoa a las : " + date + "</h1></body></html>"
-                            self.email.set_content(mensaje)
-                            smtp = smtplib.SMTP_SSL("smtp-relay.sendinblue.com")
-                            smtp.login(self.user, self.key)
-                            smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
-                            smtp.quit()
-                            self.__LogReport(f"mail intruso enviado, quedan : {self.count} pendientes")
-                            
-                            
-                        except Exception as e:
-                            self.__LogReport("No se pudo enviar el mail de intruso: %s\n" % e)
-                            
-                    elif self.pendientes :
-                        self.email = EmailMessage()
-                        self.email["From"] = hbl.Mail_remitente
-                        self.email["To"] = hbl.Mail_destinatarios
-                        self.email["Subject"] = "Intruso Pendiente"
                 
-                        try:
+                    if self.count > 0:
 
-                            with open(hbl.Contador_IntrusosPendientesPath) as file:
-                                lines = [line.strip() for line in file]
-                                file.close()
-                               
-                            with open(hbl.Contador_IntrusosPendientesPath,"w") as file:
-                                file.write("")
-                                file.close()
+                            self.email = EmailMessage()
                             
-                            for date in lines:
-                                mensaje = "<html><body><h1> Se ha detectado un intrusoa a las : " + date + "</h1></body></html>"
+                            self.email["From"] = hbl.Mail_remitente
+                            self.email["To"] = hbl.Mail_destinatarios
+                            self.email["Subject"] = hbl.Contador_ID+ "  " + hbl.Mail_subject
+                            
+
+                            date = str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+                            try:
+                                mensaje = "<html><body><h1> Se ha detectado un intruso en "+hbl.Contador_ID+"\
+                                             a las : " + date + "</h1></body></html>"
                                 self.email.set_content(mensaje)
                                 smtp = smtplib.SMTP_SSL("smtp-relay.sendinblue.com")
+                                
                                 smtp.login(self.user, self.key)
                                 smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
                                 smtp.quit()
-                                self.__LogReport(f"mail intruso pendiente enviado, fecha: {date}")
-                                time.sleep(0.5)
-                            self.pendientes = False
+                                self.__LogReport(f"mail intruso enviado, quedan : {self.count} pendientes")
+                                self.count -= 1
+                                print("Intruso Enviado")
+                            except Exception as e:
+                                
+                                self.__LogReport("No se pudo enviar el mail de intruso: %s\n" % e)
+                                print("Pendiente agregado")
+                                self.add_intruso(date)
+                                self.pendientes = True
+                                self.count -= 1
                             
-                            
-                        except Exception as e:
-                            self.__LogReport("No se pudo enviar el mail de intruso pendiente : %s\n" % e)
-                        
-                    elif self.door:
-                        
-                        self.email = EmailMessage()
-                        
-                        self.email["From"] = hbl.Mail_remitente
-                        self.email["To"] = hbl.Mail_destinatarios
-                        self.email["Subject"] = hbl.Contador_ID + " Puerta abierta"
-                        
+                    elif self.pendientes :
+                        if auxiliar.CheckInternet():
+                            self.email = EmailMessage()
+                            self.email["From"] = hbl.Mail_remitente
+                            self.email["To"] = hbl.Mail_destinatarios
+                            self.email["Subject"] = hbl.Contador_ID+ " " + "Intruso Pendiente"
+                    
+                            try:
 
-                        date = str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-                        try:
-                            mensaje = "<html><body><h1> Se ha detectado que la puerta esta abierta a las : " + date + "</h1></body></html>"
-                            self.email.set_content(mensaje)
-                            smtp = smtplib.SMTP_SSL("smtp-relay.sendinblue.com")
-                            smtp.login(self.user, self.key)
-                            smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
-                            smtp.quit()
-                            self.__LogReport(f"mail por puerta abierta enviado")
+                                with open(hbl.Contador_IntrusosPendientesPath) as file:
+                                    lines = [line.strip() for line in file]
+                                    file.close()
+                                
+                                with open(hbl.Contador_IntrusosPendientesPath,"w") as file:
+                                    file.write("")
+                                    file.close()
+                                dates = ""
+                                for date in lines:
+                                    dates = dates + date.strip() + "\n"
+                                if dates != "":
+                                    mensaje = "<html><body><h1> Se ha detectado un intruso en "+hbl.Contador_ID+"\
+                                            a las :  \n" + dates + "</h1></body></html>"
+                                    
+                                    self.email.set_content(mensaje)
+                                    smtp = smtplib.SMTP_SSL("smtp-relay.sendinblue.com")
+                                    smtp.login(self.user, self.key)
+                                    smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
+                                    smtp.quit()
+                                    self.__LogReport(f"mail intruso pendiente enviado, fecha: {date}")
+                                    time.sleep(0.5)
+                                    self.pendientes = False
+                                    print("pendientes enviados")
+                                
+                            except Exception as e:
+                                
+                                self.__LogReport("No se pudo enviar el mail de intruso pendiente : %s\n" % e)
+                        else:
+                            time.sleep(5)
                             
+                    elif self.door:
+                        if auxiliar.CheckInternet():
+                            self.email = EmailMessage()
                             
-                        except Exception as e:
-                            self.__LogReport("No se pudo enviar el mail por puerta abierta : %s\n" % e)
+                            self.email["From"] = hbl.Mail_remitente
+                            self.email["To"] = hbl.Mail_destinatarios
+                            self.email["Subject"] = hbl.Contador_ID + " "+ " Puerta abierta"
                             
-                    self.door = False
-                else:
-                    time.sleep(0.5)
+                            date = str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+                            try:
+                                mensaje = "<html><body><h1> Se ha detectado que la puerta "+hbl.Contador_ID+\
+                                          " esta abierta a las : " + date + "</h1></body></html>"
+                                self.email.set_content(mensaje)
+                                smtp = smtplib.SMTP_SSL("smtp-relay.sendinblue.com")
+                                
+                                smtp.login(self.user, self.key)
+                                smtp.sendmail(self.remitente, self.destinatario, self.email.as_string())
+                                smtp.quit()
+                                self.__LogReport(f"mail por puerta abierta enviado")
+                                
+                            except Exception as e:
+                                self.__LogReport("No se pudo enviar el mail por puerta abierta : %s\n" % e)
+                                
+                            self.door = False
+                        else:
+                            time.sleep(5)
+                    else:
+                        self.HayIntrusosPendientes()
+                        time.sleep(0.5)
+                        
+    def HayIntrusosPendientes(self):
+        myFile = open(hbl.Contador_IntrusosPendientesPath, 'r')
+
+        with myFile:
+            if myFile.readline():
+                self.pendientes = True 
+            else:
+                self.pendientes = False
+            myFile.close() 
+        
