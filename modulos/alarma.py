@@ -57,7 +57,7 @@ class alarma(object):
     
     def __run(self):
         #self.Alarma.LogReport('Timer inicializado')
-        
+        "asdasd"
         while True:
             if self._running :
                 
