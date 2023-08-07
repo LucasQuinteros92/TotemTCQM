@@ -221,7 +221,6 @@ class Puerta(object):
     def __cbFichadavencida(self):
         vg.contador -= 1
         self.cuentaAcumulada -= 1
-        
         if vg.contador > 0:
             #print(f"Fichada Descontada {vg.contador}")
             self.timerFichada.start()
@@ -230,16 +229,13 @@ class Puerta(object):
             vg.contador = 0
             
             vg.Status = vg.Esperando_Reloj
-        self.__LogReport("Fichada Vencida Quedan "+ str(vg.contador) ,color= "r")
+        self.__LogReport("Fichada Vencida",color= "r")
         vg.LastDNI = 99999999
     
 
     def __Timer(self):
         self.prevEstadoPuerta = self.EstadoPuerta
-        try:
-            self.EstadoPuerta  = self.pi.read(vg.Pin_Entrada3)
-        except:
-            pass
+        self.EstadoPuerta  = self.pi.read(vg.Pin_Entrada3)
         #EL TIMER SE INICIA CADA VEZ QUE SE ABRE LA PUERTA
         #Y SE DETIENE CADA VEZ QUE SE CIERRA
         if self.EstadoPuerta > self.prevEstadoPuerta: 
@@ -320,11 +316,9 @@ class Puerta(object):
         
     def ingresoValido(self):
         
-        
-        
+        self.timerFichada.stop()
+       
         vg.contador -= 1
-        if vg.contador == 0 :
-           self.timerFichada.stop()
         if vg.contador < 0:
             vg.contador = 0
             self.__LogReport("El contador se paso a negativo")
@@ -345,7 +339,7 @@ class Puerta(object):
         self.__LogReport(" Intruso detectado ","full","r")
         
         if not self.__ChequearHora():
-            self.Router.encender()
+            self.Router.enceder()
             
         
         self.lcd1.internet()
@@ -394,12 +388,12 @@ class Puerta(object):
             self.conexionesFallidas += 1
             
             if self.conexionesFallidas == hbl.Contador_intentos_conexion:
-                self.Router.apagar()
+                self.Router.apagar(0)
                 self.__LogReport("Apagando Modem",color="r")
                 
             elif self.conexionesFallidas == hbl.Contador_intentos_conexion + 1:
                 self.conexionesFallidas = 0
-                self.Router.encender()
+                self.Router.enceder(1)
                 self.__LogReport("Encendiendo Modem",color="r")
                 
         else:
@@ -423,7 +417,6 @@ class Puerta(object):
                 Puerta = 'Abierta'
             self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado Puerta: "+ Puerta)
             self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado Internet: "+ str(vg.internet))
-            self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Fichadas Pendientes: "+ str(vg.contador))
             #self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Estado: "+ str(self.Status))
             self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last DNI: "+ str(vg.LastDNI))
             self.log.EscribirLinea(hbl.LOGS_hblPuerta,"Last Alarma: "+ str(self.LastAlarma))
