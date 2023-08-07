@@ -163,7 +163,8 @@ if __name__ == "__main__":
     # inicializa displays LCD
     # i2cDevice.inicializacion(pi)
     lcd1 = i2cDevice.Lcd(pi)
-
+    websocket = BioStar2_WebSocket.BioStar2_WebSocket()
+    
     ClienteMqtt = MQTT.ClientMqtt(hbl.MQTT_broker,
                                   hbl.MQTT_port,
                                   hbl.MQTT_TopicSend,
@@ -174,7 +175,7 @@ if __name__ == "__main__":
     Puerta1 = CP.Puerta(pi, ClienteMqtt, lcd1)
     # BioStar2_WebSocket.inicializacion()
 
-    websocket = BioStar2_WebSocket.BioStar2_WebSocket()
+    
 
     b = datetime.datetime.now()
     print("HBL READY")

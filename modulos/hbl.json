@@ -100,28 +100,28 @@
     "network": {
         "activado": 1,
         "eth0": {
-            "activado": 0,
+            "activado": 1,
             "dhcp": 1,
-            "static_ip_address": "172.16.232.148/24",
-            "static_routers": "192.168.1.1",
-            "gateway": "172.16.0.1",
+            "static_ip_address": "192.168.0.10/24",
+            "static_routers": "192.168.0.1",
+            "gateway": "192.168.0.1",
             "DNS": "172.19.201.17 172.19.201.18",
             "metric": 0,
             "netmask": "255.255.255.0",
-            "network": "172.16.23.30",
-            "broadcast": "8.8.8.8"
+            "network": "",
+            "broadcast": ""
         },
         "wlan0": {
             "activado": 1,
             "dhcp": 1,
-            "static_ip_address": "172.16.236.75/80",
+            "static_ip_address": "172.16.201.75/80",
             "static_routers": "",
             "gateway": "172.16.0.1",
             "DNS": "172.19.201.17 172.19.201.18",
             "netmask": "",
             "network": "",
             "broadcast": "",
-            "ssid": "4G-UFI-841727",
+            "ssid": "4G-UFI-842147",
             "password": "12345678",
             "metric": 201
         },
