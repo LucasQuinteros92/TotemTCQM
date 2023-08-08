@@ -340,7 +340,7 @@
         }
     },
     "ContadorPersonas": {
-        "activado": 1,
+        "activado": 0,
         "tiempos": {
             "SegundosParafichar": 10,
             "LedPuertaAbiertaON": 0.5,
