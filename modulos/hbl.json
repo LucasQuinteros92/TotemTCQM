@@ -365,7 +365,7 @@
         "noreseth2": 2000
     },
     "Mail": {
-        "activado": 1,
+        "activado": 0,
         "destinatarios": [
             "lqu@jphlions.com"
         ],
@@ -375,7 +375,7 @@
         "subject": "Intruso detectado"
     },
     "BioStar2_WebSocket": {
-        "activado": 1,
+        "activado": 0,
         "WebSocket_Host": "wss://172.16.23.25:443",
         "Api_Host": "https://172.16.23.25",
         "Tipo_Evento": [
